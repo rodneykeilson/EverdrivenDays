@@ -20,6 +20,9 @@ namespace EverdrivenDays
         public PlayerRollingState RollingState { get; }
         public PlayerHardLandingState HardLandingState { get; }
 
+        public PlayerAttackingState AttackingState { get; }
+        public PlayerStrongAttackingState StrongAttackingState { get; }
+
         public PlayerJumpingState JumpingState { get; }
         public PlayerFallingState FallingState { get; }
 
@@ -42,6 +45,9 @@ namespace EverdrivenDays
             LightLandingState = new PlayerLightLandingState(this);
             RollingState = new PlayerRollingState(this);
             HardLandingState = new PlayerHardLandingState(this);
+
+            AttackingState = new PlayerAttackingState(this);
+            StrongAttackingState = new PlayerStrongAttackingState(this);
 
             JumpingState = new PlayerJumpingState(this);
             FallingState = new PlayerFallingState(this);

@@ -394,9 +394,9 @@ namespace EverdrivenDays
 
         protected bool IsMovingHorizontally(float minimumMagnitude = 0.1f)
         {
-            Vector3 playerHorizontaVelocity = GetPlayerHorizontalVelocity();
+            Vector3 playerHorizontalVelocity = GetPlayerHorizontalVelocity();
 
-            Vector2 playerHorizontalMovement = new Vector2(playerHorizontaVelocity.x, playerHorizontaVelocity.z);
+            Vector2 playerHorizontalMovement = new Vector2(playerHorizontalVelocity.x, playerHorizontalVelocity.z);
 
             return playerHorizontalMovement.magnitude > minimumMagnitude;
         }

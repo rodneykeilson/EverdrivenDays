@@ -23,6 +23,8 @@ namespace EverdrivenDays
         [SerializeField] private string hardStopParameterName = "isHardStopping";
         [SerializeField] private string rollParameterName = "isRolling";
         [SerializeField] private string hardLandParameterName = "isHardLanding";
+        [SerializeField] private string attackParameterName = "isAttacking";
+        [SerializeField] private string strongAttackParameterName = "isStrongAttacking";
 
         [Header("Airborne Parameter Names")]
         [SerializeField] private string fallParameterName = "isFalling";
@@ -42,6 +44,8 @@ namespace EverdrivenDays
         public int HardStopParameterHash { get; private set; }
         public int RollParameterHash { get; private set; }
         public int HardLandParameterHash { get; private set; }
+        public int AttackParameterHash { get; private set; }
+        public int StrongAttackParameterHash { get; private set; }
 
         public int FallParameterHash { get; private set; }
 
@@ -53,6 +57,7 @@ namespace EverdrivenDays
             LandingParameterHash = Animator.StringToHash(landingParameterName);
             AirborneParameterHash = Animator.StringToHash(airborneParameterName);
 
+
             IdleParameterHash = Animator.StringToHash(idleParameterName);
             DashParameterHash = Animator.StringToHash(dashParameterName);
             WalkParameterHash = Animator.StringToHash(walkParameterName);
@@ -62,6 +67,8 @@ namespace EverdrivenDays
             HardStopParameterHash = Animator.StringToHash(hardStopParameterName);
             RollParameterHash = Animator.StringToHash(rollParameterName);
             HardLandParameterHash = Animator.StringToHash(hardLandParameterName);
+            AttackParameterHash = Animator.StringToHash(attackParameterName);
+            StrongAttackParameterHash = Animator.StringToHash(strongAttackParameterName);
 
             FallParameterHash = Animator.StringToHash(fallParameterName);
         }

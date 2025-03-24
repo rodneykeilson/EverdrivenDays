@@ -122,7 +122,7 @@ namespace EverdrivenDays
         {
             stateMachine.ChangeState(stateMachine.JumpingState);
         }
-
+        
         protected virtual void OnMove()
         {
             if (stateMachine.ReusableData.ShouldSprint)
@@ -181,5 +181,8 @@ namespace EverdrivenDays
 
             UpdateTargetRotation(GetMovementInputDirection());
         }
+
+        
+
     }
 }
