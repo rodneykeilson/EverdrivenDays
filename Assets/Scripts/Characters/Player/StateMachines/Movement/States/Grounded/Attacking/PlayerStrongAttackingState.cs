@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace EverdrivenDays
 {
-    public class PlayerStrongAttackingState : PlayerStoppingState
+    public class PlayerStrongAttackingState : PlayerGroundedState
     {
         public PlayerStrongAttackingState(PlayerMovementStateMachine playerMovementStateMachine) : base(playerMovementStateMachine)
         {
@@ -39,6 +39,7 @@ namespace EverdrivenDays
 
         protected override void OnStrongAttackStarted(InputAction.CallbackContext context)
         {
+            // Prevent re-triggering strong attack while already attacking
         }
     }
 }

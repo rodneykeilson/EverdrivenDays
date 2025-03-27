@@ -102,6 +102,8 @@ namespace EverdrivenDays
             stateMachine.Player.Input.PlayerActions.Dash.started += OnDashStarted;
 
             stateMachine.Player.Input.PlayerActions.Jump.started += OnJumpStarted;
+            stateMachine.Player.Input.PlayerActions.Attack.started += OnAttackStarted;
+            stateMachine.Player.Input.PlayerActions.StrongAttack.started += OnStrongAttackStarted;
         }
 
         protected override void RemoveInputActionsCallbacks()
@@ -111,6 +113,8 @@ namespace EverdrivenDays
             stateMachine.Player.Input.PlayerActions.Dash.started -= OnDashStarted;
 
             stateMachine.Player.Input.PlayerActions.Jump.started -= OnJumpStarted;
+            stateMachine.Player.Input.PlayerActions.Attack.started -= OnAttackStarted;
+            stateMachine.Player.Input.PlayerActions.StrongAttack.started -= OnStrongAttackStarted;
         }
 
         protected virtual void OnDashStarted(InputAction.CallbackContext context)
@@ -122,7 +126,17 @@ namespace EverdrivenDays
         {
             stateMachine.ChangeState(stateMachine.JumpingState);
         }
-        
+
+        protected virtual void OnAttackStarted(InputAction.CallbackContext context)
+        {
+            stateMachine.ChangeState(stateMachine.AttackingState);
+        }
+
+        protected virtual void OnStrongAttackStarted(InputAction.CallbackContext context)
+        {
+            stateMachine.ChangeState(stateMachine.StrongAttackingState);
+        }
+
         protected virtual void OnMove()
         {
             if (stateMachine.ReusableData.ShouldSprint)
@@ -181,8 +195,5 @@ namespace EverdrivenDays
 
             UpdateTargetRotation(GetMovementInputDirection());
         }
-
-        
-
     }
 }

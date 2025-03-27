@@ -50,9 +50,6 @@ namespace EverdrivenDays
             base.AddInputActionsCallbacks();
 
             stateMachine.Player.Input.PlayerActions.Movement.started += OnMovementStarted;
-            stateMachine.Player.Input.PlayerActions.Attack.started += OnAttackStarted;
-            stateMachine.Player.Input.PlayerActions.StrongAttack.started += OnStrongAttackStarted;
-            
         }
 
         protected override void RemoveInputActionsCallbacks()
@@ -60,22 +57,11 @@ namespace EverdrivenDays
             base.RemoveInputActionsCallbacks();
 
             stateMachine.Player.Input.PlayerActions.Movement.started -= OnMovementStarted;
-            stateMachine.Player.Input.PlayerActions.Attack.started -= OnAttackStarted;
-            stateMachine.Player.Input.PlayerActions.StrongAttack.started -= OnStrongAttackStarted;
         }
 
         private void OnMovementStarted(InputAction.CallbackContext context)
         {
             OnMove();
-        }
-
-        protected virtual void OnAttackStarted(InputAction.CallbackContext context)
-        {
-            stateMachine.ChangeState(stateMachine.AttackingState);
-        }
-        protected virtual void OnStrongAttackStarted(InputAction.CallbackContext context)
-        {
-            stateMachine.ChangeState(stateMachine.StrongAttackingState);
         }
     }
 }
