@@ -6,6 +6,7 @@ namespace EverdrivenDays
     public class PlayerAttackingState : PlayerGroundedState
     {
         private float startTime;
+        private int consecutiveAttacksUsed;
         private bool shouldKeepRotating;
 
         public PlayerAttackingState(PlayerMovementStateMachine playerMovementStateMachine) : base(playerMovementStateMachine)
@@ -54,7 +55,7 @@ namespace EverdrivenDays
         {
             if (stateMachine.ReusableData.MovementInput == Vector2.zero)
             {
-                stateMachine.ChangeState(stateMachine.HardStoppingState);
+                stateMachine.ChangeState(stateMachine.IdlingState);
 
                 return;
             }
@@ -100,6 +101,28 @@ namespace EverdrivenDays
             }
 
             stateMachine.Player.Rigidbody.linearVelocity = attackDirection * GetMovementSpeed(false);
+        }
+
+        private void UpdateConsecutiveAttacks()
+        {
+            if (!IsConsecutive())
+            {
+                consecutiveAttacksUsed = 0;
+            }
+
+            ++consecutiveAttacksUsed;
+
+            if (consecutiveAttacksUsed == groundedData.AttackData.ConsecutiveAttacksLimitAmount)
+            {
+                consecutiveAttacksUsed = 0;
+
+                stateMachine.Player.Input.DisableActionFor(stateMachine.Player.Input.PlayerActions.Attack, groundedData.AttackData.AttackLimitReachedCooldown);
+            }
+        }
+
+        private bool IsConsecutive()
+        {
+            return Time.time < startTime + groundedData.AttackData.TimeToBeConsideredConsecutive;
         }
 
         protected override void OnAttackStarted(InputAction.CallbackContext context)
