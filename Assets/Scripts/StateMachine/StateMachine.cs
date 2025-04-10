@@ -6,6 +6,9 @@ namespace EverdrivenDays
     {
         protected IState currentState;
 
+        // Add public property to access the current state
+        public IState CurrentState => currentState;
+
         public void ChangeState(IState newState)
         {
             currentState?.Exit();
