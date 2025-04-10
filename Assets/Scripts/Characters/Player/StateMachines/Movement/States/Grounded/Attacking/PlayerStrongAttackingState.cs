@@ -127,6 +127,11 @@ namespace EverdrivenDays
 
         protected override void OnStrongAttackStarted(InputAction.CallbackContext context)
         {
+            // Don't transition if already in strong attacking state
+            if (!(stateMachine.CurrentState is PlayerStrongAttackingState))
+            {
+                stateMachine.ChangeState(stateMachine.StrongAttackingState);
+            }
         }
     }
 }
