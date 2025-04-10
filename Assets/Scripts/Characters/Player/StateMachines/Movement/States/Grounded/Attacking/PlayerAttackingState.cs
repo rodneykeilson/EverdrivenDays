@@ -53,6 +53,12 @@ namespace EverdrivenDays
 
         public override void OnAnimationTransitionEvent()
         {
+            // Only transition if not in the middle of a combo attack
+            if (IsConsecutive() && stateMachine.Player.Input.PlayerActions.Attack.IsPressed())
+            {
+                return;
+            }
+            
             if (stateMachine.ReusableData.MovementInput == Vector2.zero)
             {
                 stateMachine.ChangeState(stateMachine.IdlingState);
@@ -87,6 +93,9 @@ namespace EverdrivenDays
 
         private void Attack()
         {
+            startTime = Time.time;
+            UpdateConsecutiveAttacks();
+            
             Vector3 attackDirection = stateMachine.Player.transform.forward;
 
             attackDirection.y = 0f;
