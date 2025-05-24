@@ -75,6 +75,9 @@ crashlytics-build.properties
 # Ignore all assets by default
 Assets/**
 
+# Ignore package
+Packages/com.distantlands.cozy.core
+
 # Allow only specific folders to be tracked
 !Assets/Scripts/
 !Assets/Scenes/

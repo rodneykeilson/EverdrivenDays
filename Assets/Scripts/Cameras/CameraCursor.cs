@@ -82,4 +82,16 @@ namespace EverdrivenDays
             }
         }
     }
+
+    public class PreventDisable : MonoBehaviour
+    {
+        void OnDisable()
+        {
+            if (gameObject.activeInHierarchy == false && Application.isPlaying)
+            {
+                Debug.LogWarning("Something tried to disable the camera! Re-enabling...");
+                gameObject.SetActive(true);
+            }
+        }
+    }
 }

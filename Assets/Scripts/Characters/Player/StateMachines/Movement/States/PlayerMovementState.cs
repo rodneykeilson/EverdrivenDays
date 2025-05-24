@@ -47,6 +47,11 @@ namespace EverdrivenDays
 
         public virtual void OnTriggerEnter(Collider collider)
         {
+            if (stateMachine == null || stateMachine.Player == null || stateMachine.Player.LayerData == null || collider == null || collider.gameObject == null)
+            {
+                return;
+            }
+
             if (stateMachine.Player.LayerData.IsGroundLayer(collider.gameObject.layer))
             {
                 OnContactWithGround(collider);
@@ -57,6 +62,11 @@ namespace EverdrivenDays
 
         public virtual void OnTriggerExit(Collider collider)
         {
+            if (stateMachine == null || stateMachine.Player == null || stateMachine.Player.LayerData == null || collider == null || collider.gameObject == null)
+            {
+                return;
+            }
+
             if (stateMachine.Player.LayerData.IsGroundLayer(collider.gameObject.layer))
             {
                 OnContactWithGroundExited(collider);
@@ -301,6 +311,24 @@ namespace EverdrivenDays
 
         protected void UpdateCameraRecenteringState(Vector2 movementInput)
         {
+            if (stateMachine == null || stateMachine.Player == null)
+            {
+                Debug.LogWarning("Player reference is null in UpdateCameraRecenteringState");
+                return;
+            }
+
+            if (stateMachine.Player.MainCameraTransform == null)
+            {
+                Debug.LogWarning("Main camera transform is null in UpdateCameraRecenteringState");
+                return;
+            }
+
+            if (stateMachine.Player.CameraRecenteringUtility == null)
+            {
+                Debug.LogWarning("CameraRecenteringUtility is null in UpdateCameraRecenteringState");
+                return;
+            }
+
             if (movementInput == Vector2.zero)
             {
                 return;
@@ -351,6 +379,12 @@ namespace EverdrivenDays
 
         protected void EnableCameraRecentering(float waitTime = -1f, float recenteringTime = -1f)
         {
+            if (stateMachine == null || stateMachine.Player == null || stateMachine.Player.CameraRecenteringUtility == null)
+            {
+                Debug.LogWarning("Cannot enable camera recentering - required references are null");
+                return;
+            }
+
             float movementSpeed = GetMovementSpeed();
 
             if (movementSpeed == 0f)
@@ -363,6 +397,12 @@ namespace EverdrivenDays
 
         protected void DisableCameraRecentering()
         {
+            if (stateMachine == null || stateMachine.Player == null || stateMachine.Player.CameraRecenteringUtility == null)
+            {
+                Debug.LogWarning("Cannot disable camera recentering - required references are null");
+                return;
+            }
+
             stateMachine.Player.CameraRecenteringUtility.DisableRecentering();
         }
 

@@ -15,11 +15,35 @@ namespace EverdrivenDays
 
         public void Initialize()
         {
-            cinemachinePOV = VirtualCamera.GetCinemachineComponent<CinemachinePOV>();
+            if (VirtualCamera == null)
+            {
+                Debug.LogError("VirtualCamera is not assigned in PlayerCameraRecenteringUtility");
+                return;
+            }
+
+            try
+            {
+                cinemachinePOV = VirtualCamera.GetCinemachineComponent<CinemachinePOV>();
+                
+                if (cinemachinePOV == null)
+                {
+                    Debug.LogError("Failed to get CinemachinePOV component. Make sure the virtual camera has this component.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error initializing PlayerCameraRecenteringUtility: {ex.Message}");
+            }
         }
 
         public void EnableRecentering(float waitTime = -1f, float recenteringTime = -1f, float baseMovementSpeed = 1f, float movementSpeed = 1f)
         {
+            if (cinemachinePOV == null)
+            {
+                Debug.LogWarning("Cannot enable recentering - cinemachinePOV is null");
+                return;
+            }
+            
             cinemachinePOV.m_HorizontalRecentering.m_enabled = true;
 
             cinemachinePOV.m_HorizontalRecentering.CancelRecentering();
@@ -42,6 +66,12 @@ namespace EverdrivenDays
 
         public void DisableRecentering()
         {
+            if (cinemachinePOV == null)
+            {
+                Debug.LogWarning("Cannot disable recentering - cinemachinePOV is null");
+                return;
+            }
+            
             cinemachinePOV.m_HorizontalRecentering.m_enabled = false;
         }
     }
