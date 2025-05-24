@@ -77,6 +77,8 @@ namespace EverdrivenDays
         [SerializeField] private TextMeshProUGUI resultComboText;
         [SerializeField] private TextMeshProUGUI resultGradeText;
         [SerializeField] private Button continueButton;
+        [SerializeField] private PlayerStats playerStats; // Reference to the player's stats
+        [SerializeField] private int enemyAttack = 10; // Enemy's attack stat for rhythm game damage
 
         [Header("Game Settings")]
         [SerializeField] private List<SongData> availableSongs = new List<SongData>();
@@ -538,6 +540,14 @@ namespace EverdrivenDays
                         Destroy(activeNotes[i]);
                         activeNotes.RemoveAt(i);
                         
+                        // Apply HP loss to player
+                        if (playerStats != null)
+                        {
+                            int defense = playerStats.Defense;
+                            int damage = Mathf.Max(1, enemyAttack - defense);
+                            playerStats.TakeDamage(damage);
+                        }
+                        
                         // Update UI
                         UpdateScoreUI();
                     }
@@ -609,7 +619,7 @@ namespace EverdrivenDays
                 scoreText.text = $"Score: {currentScore}";
                 
             if (comboText != null)
-                comboText.text = $"Combo: {currentCombo}x";
+                comboText.text = $"{currentCombo}";
                 
             if (accuracyText != null)
             {
