@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Linq;
 
 namespace EverdrivenDays
 {
@@ -53,6 +54,10 @@ namespace EverdrivenDays
         public bool useEighthNotes = true; // Notes on eighth beats (1, 1.5, 2, 2.5, etc)
         public bool useSixteenthNotes = false; // Notes on sixteenth beats
         public bool useTriplets = false; // Notes on triplet beats
+        
+        // Advanced settings (not shown in inspector)
+        [HideInInspector]
+        public bool useHighDensityPatterns = false; // For extremely difficult patterns
     }
 
     public class RhythmGameController : MonoBehaviour
@@ -195,65 +200,19 @@ namespace EverdrivenDays
             // Generate notes procedurally if needed
             if (currentSong.generateNotes && (currentSong.notes == null || currentSong.notes.Count == 0))
             {
-                // Create a deep copy of settings to avoid modifying the original
-                NoteGenerationSettings adjustedSettings = new NoteGenerationSettings();
-                adjustedSettings.enabled = noteGenSettings.enabled;
-                adjustedSettings.randomness = noteGenSettings.randomness;
-                adjustedSettings.usePatterns = noteGenSettings.usePatterns;
-                adjustedSettings.useQuarterNotes = noteGenSettings.useQuarterNotes;
-                adjustedSettings.useEighthNotes = noteGenSettings.useEighthNotes;
-                adjustedSettings.holdNoteDuration = noteGenSettings.holdNoteDuration;
-                
-                // Aggressive density scaling - make it much more challenging at high difficulties
-                // At difficulty 32, this should now be at maximum density
-                adjustedSettings.density = Mathf.Max(1, Mathf.Min(10, difficulty / 3));
-                
-                // Base chance settings
-                adjustedSettings.chanceOfDoubleNote = noteGenSettings.chanceOfDoubleNote;
-                adjustedSettings.chanceOfTripleNote = noteGenSettings.chanceOfTripleNote;
-                adjustedSettings.chanceOfHoldNote = noteGenSettings.chanceOfHoldNote;
-                
-                // Notes pattern complexity for medium difficulty (10-20)
-                if (difficulty >= 10)
-                {
-                    adjustedSettings.useSixteenthNotes = true;
-                    adjustedSettings.chanceOfDoubleNote += difficulty;
-                }
-                
-                // Notes pattern complexity for hard difficulty (20-30)
-                if (difficulty >= 20)
-                {
-                    adjustedSettings.useTriplets = true;
-                    adjustedSettings.chanceOfTripleNote += difficulty / 2;
-                    adjustedSettings.randomness = Mathf.Min(0.1f, noteGenSettings.randomness); // Make timing more precise
-                }
-                
-                // Notes pattern complexity for very hard difficulty (30+)
-                if (difficulty >= 30)
-                {
-                    // Make extremely complex patterns
-                    adjustedSettings.chanceOfHoldNote += difficulty / 2;
-                    adjustedSettings.chanceOfDoubleNote = Mathf.Min(80, adjustedSettings.chanceOfDoubleNote + difficulty);
-                    adjustedSettings.chanceOfTripleNote = Mathf.Min(60, adjustedSettings.chanceOfTripleNote + difficulty / 2);
-                    adjustedSettings.randomness = 0.05f; // Very precise timing
-                    
-                    // Increase note density by reducing minimum spacing
-                    minTimeBetweenNotes = secondsPerBeat * 0.125f; // Allow up to 32nd notes
-                }
-                
-                // Much more aggressive timing window reduction for higher difficulties
-                // At difficulty 32, windows should be reduced by ~64% instead of 32%
+                // Make timing windows much tighter at high difficulties
                 float difficultyFactor = 1.0f - (Mathf.Min(50, difficulty) / 50f);
                 perfectWindow = Mathf.Max(10f, perfectWindow * difficultyFactor); // Can get as low as 10ms
                 goodWindow = Mathf.Max(25f, goodWindow * difficultyFactor);
                 okayWindow = Mathf.Max(40f, okayWindow * difficultyFactor);
                 
                 // Increase note speed based on difficulty
-                noteSpeed = originalNoteSpeed * (1.0f + (difficulty / 50f));
+                noteSpeed = originalNoteSpeed * (1.0f + (difficulty / 40f));
                 
-                Debug.Log($"Difficulty {difficulty}: Perfect={perfectWindow}ms, Good={goodWindow}ms, Okay={okayWindow}ms, Speed={noteSpeed}");
+                // Use challenging chart generator for all difficulties now
+                GenerateChallengingChart(currentSong, difficulty);
                 
-                GenerateNotesForSong(currentSong, adjustedSettings);
+                Debug.Log($"Generated {currentSong.notes.Count} notes with difficulty {difficulty}");
             }
             
             remainingNotes = new List<RhythmNote>(currentSong.notes);
@@ -293,166 +252,101 @@ namespace EverdrivenDays
             gameStartTime = Time.time;
         }
         
-        private void GenerateNotesForSong(SongData song, NoteGenerationSettings settings = null)
+        // New generation system for high difficulties with proper rhythm game patterns
+        private void GenerateChallengingChart(SongData song, int difficulty)
         {
-            if (settings == null) settings = noteGenSettings;
-            if (!settings.enabled) return;
-            
-            song.notes = new List<RhythmNote>();
-            
-            if (song.songClip == null)
-            {
+            if (song.songClip == null) {
                 Debug.LogError("Cannot generate notes for a song with no audio clip");
                 return;
             }
-            
-            // Calculate song duration and number of beats
+            song.notes = new List<RhythmNote>();
+
             float songDuration = song.songClip.length;
-            float secondsPerBeat = 60f / song.bpm;
-            int totalBeats = Mathf.FloorToInt(songDuration / secondsPerBeat);
-            
-            // Pre-calculate which beat divisions we'll use
-            List<float> beatDivisions = new List<float>();
-            if (settings.useQuarterNotes) beatDivisions.Add(1.0f);  // Quarter notes
-            if (settings.useEighthNotes) beatDivisions.Add(0.5f);   // Eighth notes
-            if (settings.useSixteenthNotes) beatDivisions.Add(0.25f); // Sixteenth notes
-            if (settings.useTriplets) beatDivisions.Add(0.33333f);    // Triplets
-            
-            // If no divisions selected, default to quarter notes
-            if (beatDivisions.Count == 0) beatDivisions.Add(1.0f);
-            
-            // Adjust density based on difficulty - make this more aggressive
-            float noteProbability = 0.15f + (settings.density * 0.085f); // 0.235-1.0 range
-            
-            // Track when we last placed a note
-            float lastNoteTime = 0f;
-            float minTimeBetweenNotes = secondsPerBeat * 0.2f; // Allow for denser patterns
-            
-            // Add more complexity with occasional streams and patterns
-            bool inStream = false;
-            int streamsCount = 0;
-            int maxStreams = Mathf.Min(10, settings.density * 2);
-            int streamNotes = 0;
-            int currentStreamLength = 0;
-            float streamBeatDivision = 0.25f; // Default to 16th notes for streams
-            
-            // Generate notes based on beats
-            for (float currentBeat = 0; currentBeat < totalBeats; currentBeat += inStream ? streamBeatDivision : beatDivisions[UnityEngine.Random.Range(0, beatDivisions.Count)])
-            {
-                // Handle streams (rapid sequences of notes)
-                if (inStream) 
-                {
-                    currentStreamLength++;
-                    if (currentStreamLength >= streamNotes)
-                    {
-                        inStream = false;
-                    }
+            float bpm = song.bpm;
+            float secondsPerBeat = 60f / bpm;
+            float offset = song.offset;
+
+            // Use inspector settings
+            int density = noteGenSettings.density; // 1-10
+            float randomness = noteGenSettings.randomness; // 0-1
+            bool usePatterns = noteGenSettings.usePatterns;
+            int chanceOfDouble = noteGenSettings.chanceOfDoubleNote;
+            int chanceOfTriple = noteGenSettings.chanceOfTripleNote;
+            int chanceOfHold = noteGenSettings.chanceOfHoldNote;
+            float holdNoteDuration = noteGenSettings.holdNoteDuration;
+            bool useQuarter = noteGenSettings.useQuarterNotes;
+            bool useEighth = noteGenSettings.useEighthNotes;
+            bool useSixteenth = noteGenSettings.useSixteenthNotes;
+            bool useTriplets = noteGenSettings.useTriplets;
+
+            // Determine smallest division
+            float smallestDivision = secondsPerBeat;
+            if (useSixteenth) smallestDivision = secondsPerBeat / 4f;
+            else if (useEighth) smallestDivision = secondsPerBeat / 2f;
+            else if (useTriplets) smallestDivision = secondsPerBeat / 3f;
+            // If all enabled, use 16th
+            if (useSixteenth && useTriplets) smallestDivision = Mathf.Min(secondsPerBeat / 4f, secondsPerBeat / 3f);
+
+            // Build a list of all possible note times
+            List<float> noteTimes = new List<float>();
+            for (float t = offset; t < songDuration; ) {
+                if (useQuarter) noteTimes.Add(t);
+                if (useEighth) noteTimes.Add(t + secondsPerBeat / 2f);
+                if (useSixteenth) {
+                    noteTimes.Add(t + secondsPerBeat / 4f);
+                    noteTimes.Add(t + secondsPerBeat / 2f);
+                    noteTimes.Add(t + 3f * secondsPerBeat / 4f);
                 }
-                else if (streamsCount < maxStreams && UnityEngine.Random.value < 0.05f * settings.density)
-                {
-                    // Start a new stream
-                    inStream = true;
-                    streamsCount++;
-                    currentStreamLength = 0;
-                    streamNotes = UnityEngine.Random.Range(4, 8 + settings.density);
-                    
-                    // Pick a stream beat division
-                    if (settings.useSixteenthNotes && UnityEngine.Random.value < 0.7f)
-                        streamBeatDivision = 0.25f; // 16th notes
-                    else
-                        streamBeatDivision = 0.5f;  // 8th notes
+                if (useTriplets) {
+                    noteTimes.Add(t + secondsPerBeat / 3f);
+                    noteTimes.Add(t + 2f * secondsPerBeat / 3f);
                 }
-                
-                // Add some randomness to the beat timing
-                float beatTime = currentBeat;
-                if (!inStream) // Only add randomness outside of streams
-                {
-                    beatTime += UnityEngine.Random.Range(-settings.randomness, settings.randomness);
+                t += secondsPerBeat;
+            }
+            // Remove duplicates and sort
+            noteTimes = noteTimes.Where(x => x < songDuration).Distinct().OrderBy(x => x).ToList();
+
+            // Track last note time for each lane
+            float[] lastNoteTimeInLane = new float[4] { -999f, -999f, -999f, -999f };
+            float minLaneInterval = 0.2f; // 200ms
+
+            // Aggressive note placement: at high density, fill almost every slot
+            for (int i = 0; i < noteTimes.Count; i++) {
+                float t = noteTimes[i];
+                // At high density, always place a note; at lower, use randomness
+                bool placeNote = density >= 8 || UnityEngine.Random.value < (density / 10f) + (1f - randomness) * 0.2f;
+                if (!placeNote) continue;
+
+                // Determine chord size
+                int chordSize = 1;
+                if (usePatterns) {
+                    if (UnityEngine.Random.value < chanceOfTriple / 100f) chordSize = 3;
+                    else if (UnityEngine.Random.value < chanceOfDouble / 100f) chordSize = 2;
+                    // At max density, allow rare 4-note chords
+                    if (density == 10 && UnityEngine.Random.value < 0.1f) chordSize = 4;
                 }
-                if (beatTime < 0) beatTime = 0;
-                
-                // Convert beat to song time
-                float noteTime = (beatTime * secondsPerBeat) + song.offset;
-                
-                // Skip if we just placed a note
-                if (noteTime - lastNoteTime < minTimeBetweenNotes) continue;
-                
-                // Determine if we place a note at this beat based on density
-                // In streams, always place notes. Otherwise, use probability.
-                if (inStream || UnityEngine.Random.value <= noteProbability)
-                {
-                    lastNoteTime = noteTime;
-                    
-                    // Determine how many simultaneous notes (1-3)
-                    int simultaneousNotes = 1;
-                    int r = UnityEngine.Random.Range(0, 100);
-                    
-                    if (!inStream) // Don't create chords during streams
-                    {
-                        if (r < settings.chanceOfTripleNote) simultaneousNotes = 3;
-                        else if (r < settings.chanceOfTripleNote + settings.chanceOfDoubleNote) simultaneousNotes = 2;
+                // Pick unique lanes, but only if last note in that lane was at least 200ms ago
+                List<int> lanes = new List<int>();
+                int attempts = 0;
+                while (lanes.Count < chordSize && attempts < 10) {
+                    int lane = UnityEngine.Random.Range(0, 4);
+                    if (!lanes.Contains(lane) && t - lastNoteTimeInLane[lane] >= minLaneInterval) {
+                        lanes.Add(lane);
+                        lastNoteTimeInLane[lane] = t;
                     }
-                    
-                    // Make sure we don't exceed lane count
-                    simultaneousNotes = Mathf.Min(simultaneousNotes, 4);
-                    
-                    // For streams, try to create patterns rather than random notes
-                    if (inStream && currentStreamLength > 0 && song.notes.Count > 0)
-                    {
-                        // Get the last note's lane for pattern creation
-                        int lastLane = song.notes[song.notes.Count - 1].lane;
-                        
-                        // Create a pattern-based note
-                        RhythmNote note = new RhythmNote();
-                        
-                        // Simple pattern: alternate between lanes
-                        if (UnityEngine.Random.value < 0.6f)
-                        {
-                            // Alternate pattern
-                            note.lane = (lastLane + 1 + UnityEngine.Random.Range(0, 3)) % 4;
-                        }
-                        else
-                        {
-                            // Random lane
-                            note.lane = UnityEngine.Random.Range(0, 4);
-                        }
-                        
-                        note.time = noteTime;
-                        
-                        // Streams typically don't have hold notes
-                        song.notes.Add(note);
-                        continue;
-                    }
-                    
-                    // Create a list of available lanes and randomly pick from them
-                    List<int> availableLanes = new List<int>() { 0, 1, 2, 3 };
-                    
-                    for (int i = 0; i < simultaneousNotes; i++)
-                    {
-                        if (availableLanes.Count == 0) break;
-                        
-                        // Pick a random lane
-                        int laneIndex = UnityEngine.Random.Range(0, availableLanes.Count);
-                        int lane = availableLanes[laneIndex];
-                        availableLanes.RemoveAt(laneIndex);
-                        
-                        // Create the note
-                        RhythmNote note = new RhythmNote();
-                        note.lane = lane;
-                        note.time = noteTime;
-                        
-                        // Determine if it's a hold note
-                        if (settings.usePatterns && UnityEngine.Random.Range(0, 100) < settings.chanceOfHoldNote)
-                        {
-                            note.duration = settings.holdNoteDuration * secondsPerBeat;
-                        }
-                        
-                        song.notes.Add(note);
-                    }
+                    attempts++;
+                }
+                foreach (int lane in lanes) {
+                    RhythmNote note = new RhythmNote();
+                    note.lane = lane;
+                    note.time = t;
+                    // Hold note?
+                    if (usePatterns && UnityEngine.Random.value < chanceOfHold / 100f) note.duration = holdNoteDuration * secondsPerBeat;
+                    song.notes.Add(note);
                 }
             }
-            
-            Debug.Log($"Generated {song.notes.Count} notes for song {song.songName} with difficulty density {settings.density}");
+            song.notes.Sort((a, b) => a.time.CompareTo(b.time));
+            Debug.Log($"[AggressiveGen] Generated {song.notes.Count} notes for song {song.songName} (density {density})");
         }
 
         private void ProcessInput()
