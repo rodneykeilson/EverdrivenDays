@@ -637,7 +637,7 @@ GameObject:
   - component: {fileID: 34552733}
   - component: {fileID: 34552735}
   - component: {fileID: 34552734}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Target3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1101,7 +1101,7 @@ GameObject:
   - component: {fileID: 57922509}
   - component: {fileID: 57922511}
   - component: {fileID: 57922510}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ResultScoreText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1475,7 +1475,7 @@ GameObject:
   - component: {fileID: 64162580}
   - component: {fileID: 64162582}
   - component: {fileID: 64162581}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ResultComboText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3684,7 +3684,7 @@ GameObject:
   - component: {fileID: 150042606}
   - component: {fileID: 150042608}
   - component: {fileID: 150042607}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ResultGradeText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3820,7 +3820,7 @@ GameObject:
   - component: {fileID: 152351280}
   - component: {fileID: 152351282}
   - component: {fileID: 152351281}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4508,7 +4508,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 172622966}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: SpawnPoint3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5166,7 +5166,7 @@ Transform:
   m_GameObject: {fileID: 205634721}
   serializedVersion: 2
   m_LocalRotation: {x: 0.0000000037252899, y: -0, z: -0.0000000074505797, w: 1}
-  m_LocalPosition: {x: -144.52867, y: 18.943958, z: -14.036394}
+  m_LocalPosition: {x: -155.81294, y: 17.414, z: -18.698687}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -5470,7 +5470,7 @@ GameObject:
   - component: {fileID: 231573146}
   - component: {fileID: 231573145}
   - component: {fileID: 231573144}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: EncounterPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5733,7 +5733,7 @@ GameObject:
   - component: {fileID: 236739582}
   - component: {fileID: 236739584}
   - component: {fileID: 236739583}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lane0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11517,7 +11517,7 @@ GameObject:
   - component: {fileID: 309475574}
   - component: {fileID: 309475576}
   - component: {fileID: 309475575}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Target1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13264,7 +13264,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 354990282}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: SpawnPoint1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13496,7 +13496,7 @@ GameObject:
   - component: {fileID: 369113306}
   - component: {fileID: 369113308}
   - component: {fileID: 369113307}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Target0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15699,12 +15699,19 @@ MonoBehaviour:
     bpm: 130
     offset: 0
     notes: []
-    difficulty: 10
+    difficulty: 32
+    generateNotes: 1
+  - songName: LIFE
+    songClip: {fileID: 8300000, guid: 8288c6a536fce5d418082134104dfb05, type: 3}
+    bpm: 172
+    offset: 0
+    notes: []
+    difficulty: 32
     generateNotes: 1
   noteGenSettings:
     enabled: 1
-    density: 5
-    randomness: 0.2
+    density: 10
+    randomness: 1
     usePatterns: 1
     chanceOfDoubleNote: 15
     chanceOfTripleNote: 5
@@ -17449,7 +17456,7 @@ GameObject:
   - component: {fileID: 571123489}
   - component: {fileID: 571123491}
   - component: {fileID: 571123490}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lane1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -18162,7 +18169,7 @@ GameObject:
   - component: {fileID: 609758343}
   - component: {fileID: 609758342}
   - component: {fileID: 609758341}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ResultContinueButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19374,7 +19381,7 @@ GameObject:
   - component: {fileID: 669971195}
   - component: {fileID: 669971194}
   - component: {fileID: 669971193}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: RhythmGameCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22317,7 +22324,7 @@ GameObject:
   - component: {fileID: 816185550}
   - component: {fileID: 816185552}
   - component: {fileID: 816185551}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22453,7 +22460,7 @@ GameObject:
   - component: {fileID: 820839412}
   - component: {fileID: 820839414}
   - component: {fileID: 820839413}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Fill
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23164,7 +23171,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 844547095}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: SpawnPoints
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -24118,7 +24125,7 @@ GameObject:
   - component: {fileID: 903583667}
   - component: {fileID: 903583669}
   - component: {fileID: 903583668}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lane2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -24827,7 +24834,7 @@ GameObject:
   - component: {fileID: 921543691}
   - component: {fileID: 921543693}
   - component: {fileID: 921543692}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lane3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -26711,7 +26718,7 @@ GameObject:
   - component: {fileID: 1015355605}
   - component: {fileID: 1015355606}
   - component: {fileID: 1015355607}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: EncounterText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -27846,7 +27853,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1089114139}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Fill Area
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -30112,7 +30119,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1223622849}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: SpawnPoint2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -30648,8 +30655,8 @@ GameObject:
   - component: {fileID: 1270975428}
   - component: {fileID: 1270975430}
   - component: {fileID: 1270975429}
-  m_Layer: 0
-  m_Name: RhythmGamePanel
+  m_Layer: 5
+  m_Name: RhythmGameUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -37969,7 +37976,7 @@ GameObject:
   - component: {fileID: 1387341285}
   - component: {fileID: 1387341287}
   - component: {fileID: 1387341286}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Target2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43129,7 +43136,7 @@ GameObject:
   - component: {fileID: 1405472442}
   - component: {fileID: 1405472443}
   - component: {fileID: 1405472444}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ScoreText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43726,7 +43733,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1426744257}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Lanes
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -44965,7 +44972,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 4.91121, y: 4.91121, z: 4.91121}
+  m_LocalScale: {x: 11.0788145, y: 11.0788145, z: 11.0788145}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 927326045}
@@ -48632,7 +48639,7 @@ GameObject:
   - component: {fileID: 1661453232}
   - component: {fileID: 1661453234}
   - component: {fileID: 1661453233}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: GradeText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -49489,7 +49496,7 @@ GameObject:
   - component: {fileID: 1701283363}
   - component: {fileID: 1701283364}
   - component: {fileID: 1701283365}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ComboText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -49922,7 +49929,7 @@ GameObject:
   - component: {fileID: 1714080534}
   - component: {fileID: 1714080536}
   - component: {fileID: 1714080535}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ResultScreen
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -50535,7 +50542,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1745642661}
   - component: {fileID: 1745642662}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ProgressBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -50776,7 +50783,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1759841492}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: SpawnPoint0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -52652,7 +52659,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1839739487}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Targets
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -58469,7 +58476,7 @@ GameObject:
   - component: {fileID: 2130149903}
   - component: {fileID: 2130149905}
   - component: {fileID: 2130149904}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: AccuracyText
   m_TagString: Untagged
   m_Icon: {fileID: 0}

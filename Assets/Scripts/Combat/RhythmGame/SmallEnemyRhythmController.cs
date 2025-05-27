@@ -35,6 +35,10 @@ namespace EverdrivenDays
         [SerializeField] private List<SongData> availableSongs = new List<SongData>();
         [SerializeField] private NoteGenerationSettings noteGenSettings = new NoteGenerationSettings();
 
+        [Header("Song Duration")]
+        [Tooltip("Override the duration of the rhythm game (in seconds). 0 = use full song length.")]
+        [SerializeField] private float customSongDuration = 0f; // 0 = use full song
+
         [Header("Key Bindings")]
         [SerializeField] private KeyCode[] laneKeys = new KeyCode[4] { KeyCode.D, KeyCode.F, KeyCode.J, KeyCode.K };
 
@@ -122,12 +126,13 @@ namespace EverdrivenDays
                 int lane = nc.Lane;
                 float noteTime = nc.TargetTime;
 
-                // Calculate progress (0 = spawn, 1 = hit target)
-                float travelTime = 2.0f; // seconds to reach target
-                float timeSinceSpawn = songPosition - (noteTime - travelTime);
-                float progress = Mathf.Clamp01(timeSinceSpawn / travelTime);
+                // Calculate distance and travel time based on noteSpeed
                 Vector3 startPos = laneSpawnPoints[lane].position;
                 Vector3 endPos = laneTargets[lane].position;
+                float distance = Vector3.Distance(startPos, endPos);
+                float travelTime = distance / noteSpeed; // seconds to reach target
+                float timeSinceSpawn = songPosition - (noteTime - travelTime);
+                float progress = Mathf.Clamp01(timeSinceSpawn / travelTime);
                 noteObj.transform.position = Vector3.Lerp(startPos, endPos, progress);
 
                 // Remove if past hit window
@@ -157,7 +162,7 @@ namespace EverdrivenDays
                 {
                     missedHits++;
                     currentCombo = 0;
-                    ShowHitFeedback("MISS", Color.red);
+                    ShowHitFeedback(nc.Lane, "MISS", Color.red);
                     UpdateScoreUI();
                     notesToRemove.Add(noteObj);
                     Debug.Log($"Missed note in lane {nc.Lane} at {noteTime}, current: {songPosition}");
@@ -332,6 +337,12 @@ namespace EverdrivenDays
         {
             Debug.Log("Starting rhythm game...");
             
+            // Set the game duration: use custom if set, otherwise use full song
+            if (currentSong != null && currentSong.songClip != null)
+                gameDuration = (customSongDuration > 0f) ? customSongDuration : currentSong.songClip.length;
+            else
+                gameDuration = 30f; // fallback
+            
             // Show rhythm game UI
             if (rhythmGameUI != null)
                 rhythmGameUI.SetActive(true);
@@ -378,27 +389,23 @@ namespace EverdrivenDays
 
         private IEnumerator GameTimer()
         {
-            float startTime = Time.time;
-            float elapsedTime = 0f;
-            
-            while (isPlaying && elapsedTime < gameDuration)
+            while (isPlaying)
             {
-                elapsedTime = Time.time - startTime;
-                songPosition = elapsedTime;
-                
                 // Update progress bar
-                if (progressBar != null)
+                if (progressBar != null && gameDuration > 0)
                 {
-                    progressBar.value = elapsedTime / gameDuration;
+                    progressBar.value = Mathf.Clamp01((Time.time - gameStartTime) / gameDuration);
                 }
-                
+                // End game and stop music if songPosition exceeds gameDuration
+                songPosition = Time.time - gameStartTime;
+                if (songPosition >= gameDuration)
+                {
+                    if (musicSource != null && musicSource.isPlaying)
+                        musicSource.Stop();
+                    EndGame(true);
+                    yield break;
+                }
                 yield return null;
-            }
-            
-            // Game finished
-            if (isPlaying)
-            {
-                EndGame(false);
             }
         }
 
@@ -407,120 +414,126 @@ namespace EverdrivenDays
         private void GenerateNotes()
         {
             Debug.Log("Generating notes for rhythm game...");
-            
-            // If we have a song with BPM info, use that for better rhythm-based generation
-            if (currentSong != null && currentSong.bpm > 0)
-            {
-                GenerateRhythmBasedNotes();
-            }
-            else
-            {
-                // Fallback to simple time-based generation
-                GenerateSimpleNotes();
-            }
+            if (currentSong == null) return;
+            // Always clear notes for every encounter so replay works
+            currentSong.notes.Clear();
+            // Use advanced pattern generator
+            GeneratePatternedNotes();
         }
 
-        private void GenerateRhythmBasedNotes()
+        // Advanced pattern-based generator for challenging rhythm game charts
+        private void GeneratePatternedNotes()
         {
             if (currentSong == null || currentSong.bpm <= 0) return;
-            
-            Debug.Log($"Generating rhythm-based notes for song: {currentSong.songName} with BPM: {currentSong.bpm}");
-            
+            Debug.Log($"[PatternGen] Generating patterned notes for song: {currentSong.songName} BPM: {currentSong.bpm}");
             float bpm = currentSong.bpm;
-            float beatDuration = 60f / bpm; // Duration of one beat in seconds
+            float beatDuration = 60f / bpm;
             float songOffset = currentSong.offset;
-            
-            // Calculate total beats in the song
-            int totalBeats = Mathf.FloorToInt(gameDuration / beatDuration);
-            Debug.Log($"Song has {totalBeats} beats with duration {gameDuration} seconds");
-            
-            // Determine note density based on settings
-            float density = noteGenSettings.density / 10f; // Convert 1-10 scale to 0.1-1.0
-            
-            // Store notes in the currentSong.notes list so they're visible in the inspector
-            currentSong.notes.Clear();
-            
-            // Generate notes on beats
-            for (int beat = 0; beat < totalBeats; beat++)
+            float songLength = gameDuration;
+            int difficulty = Mathf.Clamp(noteGenSettings.density, 1, 64); // Allow up to 64 for super hard
+            // --- Improved Difficulty Scaling ---
+            // Use quadratic scaling for more aggressive note increase at high difficulty
+            // At diff 1: ~1.5 NPS, at diff 32: ~10 NPS, at diff 64: ~18 NPS
+            float notesPerSecond = 1.5f + 0.008f * Mathf.Pow(difficulty, 2); // Quadratic curve
+            if (difficulty >= 64) notesPerSecond = 18f; // Cap for 64+
+            float targetNotes = notesPerSecond * songLength;
+
+            // Build rhythm grid based on rhythm settings
+            List<float> rhythmSteps = new List<float>();
+            if (noteGenSettings.useQuarterNotes) rhythmSteps.Add(1f);
+            if (noteGenSettings.useEighthNotes) rhythmSteps.Add(0.5f);
+            if (noteGenSettings.useSixteenthNotes) rhythmSteps.Add(0.25f);
+            if (noteGenSettings.useTriplets) rhythmSteps.Add(1f/3f);
+            // Default to quarter if none selected
+            if (rhythmSteps.Count == 0) rhythmSteps.Add(1f);
+
+            List<RhythmNote> notes = new List<RhythmNote>();
+            float t = songOffset;
+            System.Random rng = new System.Random();
+            int lastLane = -1;
+            float burstChance = Mathf.Lerp(0.05f, 0.25f, (difficulty-1f)/31f);
+            float jackChance = Mathf.Lerp(0.02f, 0.15f, (difficulty-1f)/31f);
+            float chordChance = Mathf.Lerp(0.10f, 0.25f, (difficulty-1f)/31f);
+            float minInterval = 0.12f - 0.06f * ((difficulty-1f)/31f); // Faster at high diff
+            while (t < songLength + songOffset)
             {
-                // Determine if we should place a note on this beat based on density
-                if (UnityEngine.Random.value < density)
-                {
-                    // Determine how many notes to place at this beat (1, 2, or 3)
-                    int noteCount = 1;
-                    
-                    // Chance for double notes
-                    if (UnityEngine.Random.Range(0, 100) < noteGenSettings.chanceOfDoubleNote)
-                    {
-                        noteCount = 2;
-                    }
-                    // Chance for triple notes
-                    else if (UnityEngine.Random.Range(0, 100) < noteGenSettings.chanceOfTripleNote)
-                    {
-                        noteCount = 3;
-                    }
-                    
-                    // Create unique lanes for this beat
-                    List<int> usedLanes = new List<int>();
-                    
-                    for (int i = 0; i < noteCount; i++)
-                    {
-                        // Find an unused lane
-                        int lane;
-                        do
-                        {
-                            lane = UnityEngine.Random.Range(0, 4);
-                        } while (usedLanes.Contains(lane));
-                        
-                        usedLanes.Add(lane);
-                        
-                        // Calculate time for this note
-                        float time = songOffset + (beat * beatDuration);
-                        
-                        // Add some randomness if enabled
-                        if (noteGenSettings.randomness > 0)
-                        {
-                            time += UnityEngine.Random.Range(-noteGenSettings.randomness, noteGenSettings.randomness) * beatDuration * 0.25f;
-                        }
-                        
-                        // Determine if this should be a hold note
-                        float duration = 0f;
-                        if (UnityEngine.Random.Range(0, 100) < noteGenSettings.chanceOfHoldNote)
-                        {
-                            duration = noteGenSettings.holdNoteDuration * beatDuration;
-                        }
-                        
-                        // Create the note
-                        RhythmNote note = new RhythmNote
-                        {
-                            lane = lane,
-                            time = time,
-                            duration = duration
+                // Choose subdivision
+                float step = rhythmSteps[rng.Next(rhythmSteps.Count)] * beatDuration;
+                t += step;
+                if (t > songLength + songOffset) break;
+                // Main note
+                int lane = rng.Next(4);
+                // Jack (repeat lane)?
+                if (lastLane == lane && rng.NextDouble() < jackChance) {
+                    // force a jack
+                } else if (rng.NextDouble() < burstChance) {
+                    // Burst: 3-5 notes in rapid succession
+                    int burstLen = rng.Next(3, 6);
+                    float burstStep = minInterval * Mathf.Lerp(1f, 0.6f, (difficulty-1f)/31f);
+                    for (int b = 0; b < burstLen; b++) {
+                        int burstLane = rng.Next(4);
+                        RhythmNote burstNote = new RhythmNote {
+                            lane = burstLane,
+                            time = t + b * burstStep,
+                            duration = 0f
                         };
-                        
-                        // Add to song's notes list
-                        currentSong.notes.Add(note);
-                        
-                        // Schedule note spawn
-                        StartCoroutine(SpawnNoteAtTime(note));
+                        notes.Add(burstNote);
                     }
+                    t += burstLen * minInterval;
+                } else if (rng.NextDouble() < chordChance) {
+                    // Chord: 2-3 notes at once
+                    int chordSize = rng.Next(2, 4);
+                    HashSet<int> chordLanes = new HashSet<int>();
+                    while (chordLanes.Count < chordSize) chordLanes.Add(rng.Next(4));
+                    foreach (int chordLane in chordLanes) {
+                        RhythmNote chordNote = new RhythmNote {
+                            lane = chordLane,
+                            time = t,
+                            duration = 0f
+                        };
+                        notes.Add(chordNote);
+                    }
+                } else {
+                    // Regular note
+                    RhythmNote note = new RhythmNote {
+                        lane = lane,
+                        time = t,
+                        duration = 0f
+                    };
+                    notes.Add(note);
                 }
+                lastLane = lane;
+                // Optionally add hold notes
+                if (noteGenSettings.chanceOfHoldNote > 0 && rng.Next(100) < noteGenSettings.chanceOfHoldNote) {
+                    notes[notes.Count-1].duration = noteGenSettings.holdNoteDuration * beatDuration;
+                }
+                // Stop if we've hit target note count
+                if (notes.Count >= targetNotes) break;
             }
-            
-            Debug.Log($"Generated {currentSong.notes.Count} notes for the song");
+            // Sort notes by time
+            notes.Sort((a, b) => a.time.CompareTo(b.time));
+            currentSong.notes.Clear();
+            foreach (var n in notes) {
+                currentSong.notes.Add(n);
+                StartCoroutine(SpawnNoteAtTime(n));
+            }
+            Debug.Log($"[PatternGen] Generated {currentSong.notes.Count} notes for the song");
         }
 
         private IEnumerator SpawnNoteAtTime(RhythmNote note)
         {
-            // CRITICAL FIX: Use a fixed time to travel (2 seconds) for consistency
-            float timeToTravel = 2.0f; // Notes take 2 seconds to travel from spawn to target
-            
+            // Calculate distance and travel time based on noteSpeed
+            Vector3 startPos = laneSpawnPoints[note.lane].position;
+            Vector3 endPos = laneTargets[note.lane].position;
+            float distance = Vector3.Distance(startPos, endPos);
+            float timeToTravel = distance / noteSpeed; // seconds to reach target
+
             // Calculate when to spawn this note
             float spawnTime = note.time - timeToTravel;
-            
+
             // Log the note spawn scheduling
             Debug.Log($"Scheduling note in lane {note.lane} to spawn at time {spawnTime}, target hit time: {note.time}");
-            
+
             // Wait until it's time to spawn
             float timeUntilSpawn = spawnTime - songPosition;
             if (timeUntilSpawn > 0)
@@ -528,29 +541,20 @@ namespace EverdrivenDays
                 Debug.Log($"Waiting {timeUntilSpawn} seconds to spawn note in lane {note.lane}");
                 yield return new WaitForSeconds(timeUntilSpawn);
             }
-            
+
             // Only spawn if we're still playing
             if (isPlaying)
             {
                 // Spawn the note
                 SpawnNote(note);
                 Debug.Log($"Spawned note in lane {note.lane} at time {songPosition}, should be hit at {note.time}");
-                
-                // CRITICAL FIX: Force an immediate update of the note's position
-                // This ensures the note is correctly positioned right after spawning
+                // Force an immediate update of the note's position
                 foreach (GameObject noteObj in activeNotes)
                 {
                     if (noteObj == null) continue;
-                    
                     NoteController noteController = noteObj.GetComponent<NoteController>();
                     if (noteController != null && noteController.Lane == note.lane && Mathf.Abs(noteController.TargetTime - note.time) < 0.01f)
                     {
-                        // Calculate the initial progress
-                        float progress = 0f; // Start at spawn point
-                        Vector3 startPos = laneSpawnPoints[note.lane].position;
-                        Vector3 endPos = laneTargets[note.lane].position;
-                        
-                        // Set the initial position
                         noteObj.transform.position = startPos;
                         Debug.Log($"Forced initial position of note in lane {note.lane} to {startPos}");
                         break;
@@ -585,18 +589,9 @@ namespace EverdrivenDays
                 return;
             }
             
-            // CRITICAL FIX: Create the note as a direct child of the Canvas
-            Canvas mainCanvas = rhythmGameUI.GetComponentInParent<Canvas>();
-            if (mainCanvas == null)
-            {
-                Debug.LogError("Cannot find Canvas component in parent hierarchy");
-                return;
-            }
-            
-            // Instantiate the note as a direct child of the Canvas
-            GameObject noteObj = Instantiate(notePrefab, mainCanvas.transform);
-            
-            // Ensure the note is active and visible
+            // Instantiate the note and parent it to the rhythmGameUI for proper UI hierarchy (like RhythmGameController)
+            GameObject noteObj = Instantiate(notePrefab);
+            noteObj.transform.SetParent(rhythmGameUI.transform, false);
             noteObj.SetActive(true);
             
             // Get the RectTransform component
@@ -735,7 +730,7 @@ namespace EverdrivenDays
                     currentScore += 100;
                     currentCombo++;
                     perfectHits++;
-                    ShowHitFeedback("PERFECT", Color.magenta);
+                    ShowHitFeedback(lane, "PERFECT", Color.magenta);
                     Debug.Log("PERFECT hit!");
                 }
                 else if (timeDiffMs <= goodWindow)
@@ -744,7 +739,7 @@ namespace EverdrivenDays
                     currentScore += 75;
                     currentCombo++;
                     goodHits++;
-                    ShowHitFeedback("GOOD", Color.green);
+                    ShowHitFeedback(lane, "GOOD", Color.green);
                     Debug.Log("GOOD hit!");
                 }
                 else if (timeDiffMs <= okayWindow)
@@ -753,7 +748,7 @@ namespace EverdrivenDays
                     currentScore += 50;
                     currentCombo++;
                     okayHits++;
-                    ShowHitFeedback("OKAY", Color.yellow);
+                    ShowHitFeedback(lane, "OKAY", Color.yellow);
                     Debug.Log("OKAY hit!");
                 }
                 else
@@ -761,7 +756,7 @@ namespace EverdrivenDays
                     // Too far off, count as a miss
                     // Don't break combo, but don't increase score much
                     currentScore += 5;
-                    ShowHitFeedback("MISS", Color.red);
+                    ShowHitFeedback(lane, "MISS", Color.red);
                     missedHits++;
                     currentCombo = 0;
                     Debug.Log("MISS - too far from hit window!");
@@ -784,10 +779,43 @@ namespace EverdrivenDays
             }
         }
 
-        private void ShowHitFeedback(string text, Color color)
+        // Show feedback at the exact pressed lane
+        private void ShowHitFeedback(int laneIndex, string text, Color color)
         {
-            // This would be implemented to show feedback text
-            Debug.Log($"Hit Feedback: {text}");
+            Vector3 feedbackPos = laneTargets[laneIndex].position;
+            GameObject feedbackObj = new GameObject("HitFeedback");
+            feedbackObj.transform.SetParent(rhythmGameUI.transform, false);
+            feedbackObj.transform.position = feedbackPos;
+
+            var textComp = feedbackObj.AddComponent<TMPro.TextMeshProUGUI>();
+            textComp.text = text;
+            textComp.fontSize = 48;
+            textComp.color = color;
+            textComp.alignment = TMPro.TextAlignmentOptions.Center;
+            textComp.fontStyle = TMPro.FontStyles.Bold;
+            textComp.enableAutoSizing = true;
+
+            // Animate and destroy
+            StartCoroutine(AnimateHitFeedback(feedbackObj));
+        }
+
+        private IEnumerator AnimateHitFeedback(GameObject feedbackObj)
+        {
+            float duration = 0.7f;
+            float startTime = Time.time;
+            var text = feedbackObj.GetComponent<TMPro.TextMeshProUGUI>();
+            Vector3 startPos = feedbackObj.transform.position;
+            Vector3 endPos = startPos + Vector3.up * 80f;
+
+            while (Time.time - startTime < duration)
+            {
+                float t = (Time.time - startTime) / duration;
+                feedbackObj.transform.position = Vector3.Lerp(startPos, endPos, t);
+                if (text != null)
+                    text.color = new Color(text.color.r, text.color.g, text.color.b, 1 - t);
+                yield return null;
+            }
+            Destroy(feedbackObj);
         }
 
         // LEGACY: CheckForMissedNotes is replaced by CheckMissedNotes (see above) and is no longer used.
@@ -812,8 +840,8 @@ namespace EverdrivenDays
                         currentCombo = 0;
                         notesToRemove.Add(note);
                         
-                        // Show miss feedback
-                        ShowHitFeedback("MISS", Color.red);
+                        // Show miss feedback (use new signature)
+                        ShowHitFeedback(noteController.Lane, "MISS", Color.red);
                         
                         // Update UI
                         UpdateScoreUI();
