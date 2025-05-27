@@ -8,6 +8,8 @@ namespace EverdrivenDays
     {
         public PlayerInputActions InputActions { get; private set; }
         public PlayerInputActions.PlayerActions PlayerActions { get; private set; }
+        
+        private bool movementEnabled = true;
 
         private void Awake()
         {
@@ -38,6 +40,34 @@ namespace EverdrivenDays
             yield return new WaitForSeconds(seconds);
 
             action.Enable();
+        }
+        
+        /// <summary>
+        /// Disables all movement-related input actions
+        /// </summary>
+        public void DisableMovement()
+        {
+            if (!movementEnabled) return; // Already disabled
+            
+            Debug.Log("Disabling player movement");
+            movementEnabled = false;
+            
+            // Disable all player actions
+            InputActions.Disable();
+        }
+        
+        /// <summary>
+        /// Re-enables all movement-related input actions
+        /// </summary>
+        public void EnableMovement()
+        {
+            if (movementEnabled) return; // Already enabled
+            
+            Debug.Log("Re-enabling player movement");
+            movementEnabled = true;
+            
+            // Re-enable all player actions
+            InputActions.Enable();
         }
     }
 }
