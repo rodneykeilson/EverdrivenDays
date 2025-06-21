@@ -22,6 +22,7 @@ namespace EverdrivenDays
         [SerializeField] private float detectionRange = 10f;
         [SerializeField] private float attackRange = 2f;
         [SerializeField] private GameObject healthBarPrefab;
+        [SerializeField] private float healthBarYOffset = 3.0f; // Editable in Inspector
 
         [Header("Movement")]
         [SerializeField] private float patrolRadius = 10f;
@@ -51,6 +52,7 @@ namespace EverdrivenDays
         private GameObject healthBarInstance;
         private bool isInCombat = false;
         private bool isKnockedBack = false;
+        private GoblinAnimationController goblinAnim;
 
         // Enemy state machine (simplified)
         private enum EnemyState
@@ -64,22 +66,31 @@ namespace EverdrivenDays
 
         private EnemyState currentState = EnemyState.Patrolling;
 
+        // Static flags to track player combat state
+        private static bool playerInRhythmCombat = false;
+        private static float playerCombatIFrameEnd = 0f;
+
         protected override void Awake()
         {
             base.Awake();
             navMeshAgent = GetComponent<NavMeshAgent>();
             resizableCapsuleCollider = GetComponent<EnemyResizableCapsuleCollider>();
             groundCheck = GetComponent<EnemyGroundCheck>();
+            goblinAnim = GetComponent<GoblinAnimationController>();
 
             // Ensure proper Rigidbody setup
             Rigidbody rb = GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.isKinematic = false; // We need physics for ground detection
-                rb.freezeRotation = true; // Prevent tipping over
+                rb.isKinematic = true; // Use kinematic for NavMeshAgent control
+                rb.freezeRotation = false; // Allow all rotations
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
             }
+
+            // Double the speeds
+            walkSpeed *= 2f;
+            chaseSpeed *= 2f;
 
             // No need to configure the collider here as that's now done by EnemyResizableCapsuleCollider
 
@@ -101,8 +112,33 @@ namespace EverdrivenDays
         private void Update()
         {
             if (isDead) return;
-            if (isInCombat) return; // Don't update AI during combat
-            if (isKnockedBack) return; // Don't update AI during knockback
+            if (isInCombat) return;
+            if (isKnockedBack) return;
+
+            // If player is in rhythm combat or in i-frame, wait
+            if (playerInRhythmCombat || Time.time < playerCombatIFrameEnd)
+            {
+                if (!navMeshAgent.isStopped)
+                    navMeshAgent.isStopped = true;
+                if (currentState != EnemyState.Waiting)
+                    currentState = EnemyState.Waiting;
+                return;
+            }
+            else if (navMeshAgent.isStopped)
+            {
+                navMeshAgent.isStopped = false;
+                if (currentState == EnemyState.Waiting)
+                    currentState = EnemyState.Patrolling;
+            }
+
+            // Animation state logic
+            if (goblinAnim != null)
+            {
+                if (currentState == EnemyState.Patrolling || currentState == EnemyState.Waiting)
+                    goblinAnim.PlayIdle();
+                else if (currentState == EnemyState.Chasing)
+                    goblinAnim.PlayRun();
+            }
 
             switch (currentState)
             {
@@ -153,7 +189,13 @@ namespace EverdrivenDays
         private void ChasePlayer()
         {
             if (playerTransform == null) return;
-
+            // If player is in rhythm combat or in i-frame, wait
+            if (playerInRhythmCombat || Time.time < playerCombatIFrameEnd)
+            {
+                navMeshAgent.isStopped = true;
+                currentState = EnemyState.Waiting;
+                return;
+            }
             // Update destination to player position and set chase speed
             navMeshAgent.SetDestination(playerTransform.position);
             navMeshAgent.speed = chaseSpeed;
@@ -269,19 +311,11 @@ namespace EverdrivenDays
         // Override the Die method from CharacterStats
         protected override void Die()
         {
-            base.Die();
-
             isDead = true;
-            currentState = EnemyState.Dead;
+            if (goblinAnim != null) goblinAnim.PlayDeath();
 
             // Stop movement
             navMeshAgent.isStopped = true;
-
-            // Play death animation
-            if (animator != null)
-            {
-                animator.SetTrigger("Death");
-            }
 
             // Disable colliders
             Collider[] colliders = GetComponents<Collider>();
@@ -298,6 +332,10 @@ namespace EverdrivenDays
 
             // Give rewards to player
             GiveRewardsToPlayer();
+
+            // Respawn logic
+            var respawner = GetComponent<EnemyRespawner>();
+            if (respawner != null) respawner.OnEnemyDeath();
 
             // Destroy the enemy after a delay
             Destroy(gameObject, 3f);
@@ -345,6 +383,7 @@ namespace EverdrivenDays
             Debug.Log("Starting battle with enemy");    
             
             isInCombat = true;
+            playerInRhythmCombat = true;
 
             // Stop movement during combat
             if (navMeshAgent != null)
@@ -379,25 +418,16 @@ namespace EverdrivenDays
         public void OnCombatEnd(bool playerWon)
         {
             isInCombat = false;
-
+            playerInRhythmCombat = false;
+            playerCombatIFrameEnd = Time.time + 2f; // 2 seconds i-frame
+            isPlayerDetected = false; // Force re-detection after combat
             // Resume movement if still alive
             if (!isDead && navMeshAgent != null)
             {
                 navMeshAgent.isStopped = false;
-                
-                // Reset enemy state to continue following player if they were detected
-                if (isPlayerDetected)
-                {
-                    currentState = EnemyState.Chasing;
-                    Debug.Log("Enemy resuming chase after combat");
-                }
-                else
-                {
-                    currentState = EnemyState.Patrolling;
-                    Debug.Log("Enemy resuming patrol after combat");
-                }
+                currentState = EnemyState.Patrolling;
+                Debug.Log("Enemy resuming patrol after combat");
             }
-            
             // Set a cooldown before the next battle can occur
             StartCoroutine(BattleCooldown());
         }
@@ -489,25 +519,20 @@ namespace EverdrivenDays
         {
             if (healthBarPrefab != null)
             {
-                // Calculate position above the enemy's head based on collider height
                 CapsuleCollider capsule = GetComponent<CapsuleCollider>();
-                float yOffset = capsule != null ? capsule.height * 1.5f : 3.0f;
-                
-                // Position the health bar above the enemy's head
+                float yOffset = healthBarYOffset;
+                if (capsule != null && healthBarYOffset <= 0f)
+                    yOffset = capsule.height * 1.5f; // fallback if not set
                 Vector3 healthBarPosition = transform.position + Vector3.up * yOffset;
                 healthBarInstance = Instantiate(healthBarPrefab, healthBarPosition, Quaternion.identity);
                 healthBarInstance.transform.SetParent(transform);
-                
-                // Adjust local position to ensure it stays above the head
                 healthBarInstance.transform.localPosition = new Vector3(0, yOffset, 0);
-
-                // Set up the health bar
                 EnemyHealthBar healthBar = healthBarInstance.GetComponent<EnemyHealthBar>();
                 if (healthBar != null)
                 {
                     healthBar.SetTarget(this);
+                    healthBar.SetYOffset(yOffset); // Set the offset in the health bar script
                 }
-                
                 Debug.Log($"Created health bar at height offset: {yOffset}");
             }
         }
@@ -540,5 +565,18 @@ namespace EverdrivenDays
             Gizmos.color = Color.blue;
             Gizmos.DrawWireSphere(startPosition, patrolRadius);
         }
+
+        // Reset enemy state for respawn system
+        public void ResetEnemy()
+        {
+            isDead = false;
+            currentHealth = maxHealth.Value;
+            SetHealth(currentHealth);
+            isInCombat = false;
+            isKnockedBack = false;
+            currentState = EnemyState.Patrolling;
+            if (goblinAnim != null) goblinAnim.PlayIdle();
+            // ...reset other state as needed...
+        }
     }
-} 
+}

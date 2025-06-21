@@ -26,6 +26,8 @@ namespace EverdrivenDays
         public List<RhythmNote> notes = new List<RhythmNote>(); // Will be auto-generated if empty
         public int difficulty = 1; // 1-10 scale
         public bool generateNotes = true; // Whether to procedurally generate notes
+        [Tooltip("Override the duration of this song for rhythm game (in seconds). 0 = use full song length.")]
+        public float customDuration = 0f;
     }
 
     [Serializable]

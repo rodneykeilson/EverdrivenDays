@@ -103,5 +103,10 @@ namespace EverdrivenDays
                 gameObject.SetActive(false);
             }
         }
+
+        public void SetYOffset(float y)
+        {
+            offset.y = y;
+        }
     }
 }

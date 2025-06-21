@@ -77,9 +77,10 @@ namespace EverdrivenDays
         [SerializeField] private int experienceToNextLevel = 100;
         
         [Header("Health and Resources")]
-        [SerializeField] private Stat maxHealth = new Stat(100);
-        [SerializeField] private Stat maxMana = new Stat(50);
-        [SerializeField] private int currentHealth;
+        [SerializeField] protected int baseHealth = 1000; // Editable in Inspector
+        [SerializeField] protected Stat maxHealth = new Stat(100);
+        [SerializeField] protected int currentHealth;
+        [SerializeField] protected Stat maxMana = new Stat(50);
         [SerializeField] private int currentMana;
         
         [Header("Core Stats")]
@@ -107,6 +108,8 @@ namespace EverdrivenDays
         
         protected virtual void Awake()
         {
+            // Sync maxHealth base value with Inspector value
+            maxHealth.BaseValue = baseHealth;
             // Initialize current values
             currentHealth = maxHealth.Value;
             currentMana = maxMana.Value;
@@ -114,6 +117,15 @@ namespace EverdrivenDays
             // Calculate derived stats
             RecalculateDerivedStats();
         }
+        
+        #if UNITY_EDITOR
+        private void OnValidate()
+        {
+            // Keep maxHealth in sync with Inspector
+            if (maxHealth != null)
+                maxHealth.BaseValue = baseHealth;
+        }
+        #endif
         
         protected virtual void Start()
         {
@@ -396,4 +408,4 @@ namespace EverdrivenDays
         
         #endregion
     }
-} 
+}

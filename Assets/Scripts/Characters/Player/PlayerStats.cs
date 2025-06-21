@@ -128,24 +128,73 @@ namespace EverdrivenDays
         {
             // Accuracy is 0-1 where 1 is perfect
             // Scale it to a range of 1.0-2.0 for the damage multiplier
-            rhythmAccuracyBonus = 1.0f + accuracy;
+            if (accuracy <= 0f)
+            {
+                Debug.LogWarning("rhythmAccuracyBonus was not set. Defaulting to 1.0.");
+                rhythmAccuracyBonus = 1.0f;
+            }
+            else
+            {
+                rhythmAccuracyBonus = 1.0f + accuracy;
+            }
         }
-        
-        public int CalculateDamage(int baseDamage)
+
+        // Calculate damage based on attack power, combo, and rhythm performance
+        // New: Overload for rhythm results
+        public int CalculateDamage(int baseDamage, bool fullCombo, bool allPerfect)
         {
-            // Calculate damage based on attack power, combo, and rhythm performance
-            float comboDamageMultiplier = 1.0f + (currentComboCount * 0.2f);
-            
-            int finalDamage = Mathf.RoundToInt(baseDamage * AttackPower / 10f * comboDamageMultiplier * rhythmAccuracyBonus);
-            
+            float attackFactor = baseDamage * AttackPower / 10f;
+            float finalDamage = attackFactor;
+
+            if (allPerfect)
+            {
+                finalDamage *= 5f;
+                Debug.Log("[DMG] All Perfect! Quintuple damage.");
+            }
+            else if (fullCombo)
+            {
+                finalDamage *= 2f;
+                Debug.Log("[DMG] Full Combo! Double damage.");
+            }
+            else
+            {
+                float accuracyBonus = rhythmAccuracyBonus;
+                if (accuracyBonus <= 0f)
+                {
+                    Debug.LogWarning("rhythmAccuracyBonus was not set. Defaulting to 1.0.");
+                    accuracyBonus = 1.0f;
+                }
+                finalDamage *= accuracyBonus;
+                Debug.Log($"[DMG] Partial combo. Scaled by accuracy: {accuracyBonus}");
+            }
+
+            // Optionally, log score if available
+            int score = -1;
+            if (this.GetType().GetMethod("GetLastRhythmScore") != null)
+            {
+                score = (int)this.GetType().GetMethod("GetLastRhythmScore").Invoke(this, null);
+                Debug.Log($"[DMG] Rhythm Score included in calculation: {score}");
+            }
+            else
+            {
+                Debug.LogWarning("[DMG] No rhythm score found in PlayerStats. Only using accuracy bonus.");
+            }
+
             // Add critical chance
             if (Random.Range(0, 100) < CritChance)
             {
                 finalDamage = Mathf.RoundToInt(finalDamage * (CritDamage / 100f));
-                Debug.Log("Critical hit!");
+                Debug.Log("[DMG] Critical hit! CritDamage multiplier: " + (CritDamage / 100f));
             }
-            
-            return finalDamage;
+
+            Debug.Log($"[DMG] Final damage dealt: {finalDamage}");
+            return Mathf.RoundToInt(finalDamage);
+        }
+
+        // Keep the old version for compatibility if needed
+        public int CalculateDamage(int baseDamage)
+        {
+            return CalculateDamage(baseDamage, false, false);
         }
         
         protected override void Die()

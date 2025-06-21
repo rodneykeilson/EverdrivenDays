@@ -35,10 +35,6 @@ namespace EverdrivenDays
         [SerializeField] private List<SongData> availableSongs = new List<SongData>();
         [SerializeField] private NoteGenerationSettings noteGenSettings = new NoteGenerationSettings();
 
-        [Header("Song Duration")]
-        [Tooltip("Override the duration of the rhythm game (in seconds). 0 = use full song length.")]
-        [SerializeField] private float customSongDuration = 0f; // 0 = use full song
-
         [Header("Key Bindings")]
         [SerializeField] private KeyCode[] laneKeys = new KeyCode[4] { KeyCode.D, KeyCode.F, KeyCode.J, KeyCode.K };
 
@@ -67,6 +63,9 @@ namespace EverdrivenDays
         public int MaxCombo => maxCombo;
         public bool IsFullCombo => missedHits == 0;
         public bool IsAllPerfect => perfectHits > 0 && goodHits == 0 && okayHits == 0 && missedHits == 0;
+
+        // Track running note spawn coroutines
+        private List<Coroutine> noteSpawnCoroutines = new List<Coroutine>();
 
         private void Awake()
         {
@@ -277,7 +276,8 @@ namespace EverdrivenDays
         private void SelectSong(AudioClip specificSongClip = null)
         {
             Debug.Log("Selecting song for rhythm game...");
-            
+            // Always reset currentSong so a song is selected every time
+            currentSong = null;
             // If a specific song clip is provided, try to find it in available songs
             if (specificSongClip != null)
             {
@@ -292,7 +292,6 @@ namespace EverdrivenDays
                     }
                 }
             }
-            
             // If no song was found or specified, pick a random one
             if (currentSong == null && availableSongs.Count > 0)
             {
@@ -304,71 +303,40 @@ namespace EverdrivenDays
             {
                 Debug.LogError("No songs available in the availableSongs list! Please add songs in the inspector.");
             }
-            
-            // If we have a song, set its duration as the game duration
-            if (currentSong != null && currentSong.songClip != null)
-            {
-                gameDuration = currentSong.songClip.length;
-                Debug.Log($"Set game duration to {gameDuration} seconds based on song length");
-                
-                // Assign the song to the music source
-                if (musicSource != null)
-                {
-                    musicSource.clip = currentSong.songClip;
-                    Debug.Log($"Assigned song clip '{currentSong.songClip.name}' to music source");
-                    
-                    // Make sure volume is set properly
-                    musicSource.volume = 1.0f;
-                }
-                else
-                {
-                    Debug.LogError("Music source is null! Make sure to assign an AudioSource component.");
-                }
-            }
-            else
-            {
-                // Default duration if no song is available
-                gameDuration = 15f;
-                Debug.LogWarning("No song available for rhythm game. Using default duration.");
-            }
         }
 
         private void StartActualGame()
         {
             Debug.Log("Starting rhythm game...");
-            
-            // Set the game duration: use custom if set, otherwise use full song
-            if (currentSong != null && currentSong.songClip != null)
-                gameDuration = (customSongDuration > 0f) ? customSongDuration : currentSong.songClip.length;
-            else
-                gameDuration = 30f; // fallback
-            
+            // Set gameDuration from per-song override or clip length
+            if (currentSong != null && currentSong.songClip != null) {
+                gameDuration = (currentSong.customDuration > 0f) ? currentSong.customDuration : currentSong.songClip.length;
+            } else {
+                gameDuration = 15f;
+            }
             // Show rhythm game UI
             if (rhythmGameUI != null)
                 rhythmGameUI.SetActive(true);
-            
             // Reset UI elements
             if (scoreText != null)
                 scoreText.text = "0";
-            
             if (comboText != null)
                 comboText.text = "0";
-            
             if (accuracyText != null)
                 accuracyText.text = "Accuracy: 0%";
-            
             if (gradeText != null)
                 gradeText.text = "";
-            
             if (progressBar != null)
             {
                 progressBar.value = 0;
                 progressBar.maxValue = 1;
             }
-            
-            // Generate notes for the song
+            // Start game timer and set state BEFORE generating notes
+            isPlaying = true;
+            gameStartTime = Time.time;
+            StartCoroutine(GameTimer());
+            // Now generate notes for the song (so coroutines use correct songPosition)
             GenerateNotes();
-            
             // Start playing the song
             if (musicSource != null && currentSong != null && currentSong.songClip != null)
             {
@@ -380,11 +348,6 @@ namespace EverdrivenDays
             {
                 Debug.LogWarning("No music source or song clip available!");
             }
-            
-            // Start game timer
-            isPlaying = true;
-            gameStartTime = Time.time;
-            StartCoroutine(GameTimer());
         }
 
         private IEnumerator GameTimer()
@@ -415,8 +378,27 @@ namespace EverdrivenDays
         {
             Debug.Log("Generating notes for rhythm game...");
             if (currentSong == null) return;
-            // Always clear notes for every encounter so replay works
-            currentSong.notes.Clear();
+            // Stop all running note spawn coroutines from previous encounters
+            foreach (var coroutine in noteSpawnCoroutines)
+            {
+                if (coroutine != null)
+                    StopCoroutine(coroutine);
+            }
+            noteSpawnCoroutines.Clear();
+            // Clear any active notes from previous encounters
+            foreach (var noteObj in activeNotes)
+            {
+                if (noteObj != null)
+                    Destroy(noteObj);
+            }
+            activeNotes.Clear();
+            // Always generate a fresh set of notes for every encounter
+            // Set gameDuration from per-song override or clip length
+            if (currentSong != null && currentSong.songClip != null) {
+                gameDuration = (currentSong.customDuration > 0f) ? currentSong.customDuration : currentSong.songClip.length;
+            } else {
+                gameDuration = 15f;
+            }
             // Use advanced pattern generator
             GeneratePatternedNotes();
         }
@@ -425,52 +407,58 @@ namespace EverdrivenDays
         private void GeneratePatternedNotes()
         {
             if (currentSong == null || currentSong.bpm <= 0) return;
-            Debug.Log($"[PatternGen] Generating patterned notes for song: {currentSong.songName} BPM: {currentSong.bpm}");
+            Debug.Log($"[PatternGen] Generating grid-based notes for song: {currentSong.songName} BPM: {currentSong.bpm}");
             float bpm = currentSong.bpm;
             float beatDuration = 60f / bpm;
             float songOffset = currentSong.offset;
             float songLength = gameDuration;
-            int difficulty = Mathf.Clamp(noteGenSettings.density, 1, 64); // Allow up to 64 for super hard
-            // --- Improved Difficulty Scaling ---
-            // Use quadratic scaling for more aggressive note increase at high difficulty
-            // At diff 1: ~1.5 NPS, at diff 32: ~10 NPS, at diff 64: ~18 NPS
-            float notesPerSecond = 1.5f + 0.008f * Mathf.Pow(difficulty, 2); // Quadratic curve
-            if (difficulty >= 64) notesPerSecond = 18f; // Cap for 64+
-            float targetNotes = notesPerSecond * songLength;
+            int difficulty = Mathf.Clamp(noteGenSettings.density, 1, 64);
 
-            // Build rhythm grid based on rhythm settings
+            // --- Rhythm grid calculation ---
             List<float> rhythmSteps = new List<float>();
             if (noteGenSettings.useQuarterNotes) rhythmSteps.Add(1f);
             if (noteGenSettings.useEighthNotes) rhythmSteps.Add(0.5f);
             if (noteGenSettings.useSixteenthNotes) rhythmSteps.Add(0.25f);
             if (noteGenSettings.useTriplets) rhythmSteps.Add(1f/3f);
-            // Default to quarter if none selected
             if (rhythmSteps.Count == 0) rhythmSteps.Add(1f);
 
+            // Find smallest subdivision
+            float smallestStep = 1f;
+            foreach (var step in rhythmSteps) if (step < smallestStep) smallestStep = step;
+
+            float gridStep = smallestStep * beatDuration;
+            int numGridSlots = Mathf.FloorToInt(songLength / gridStep);
+
+            // Fill rate: at diff 32, fill ~95% of slots; lower diffs fill less
+            float fillRate = Mathf.Lerp(0.3f, 0.95f, Mathf.Clamp01((difficulty - 1f) / 31f));
+
             List<RhythmNote> notes = new List<RhythmNote>();
-            float t = songOffset;
             System.Random rng = new System.Random();
             int lastLane = -1;
             float burstChance = Mathf.Lerp(0.05f, 0.25f, (difficulty-1f)/31f);
             float jackChance = Mathf.Lerp(0.02f, 0.15f, (difficulty-1f)/31f);
             float chordChance = Mathf.Lerp(0.10f, 0.25f, (difficulty-1f)/31f);
-            float minInterval = 0.12f - 0.06f * ((difficulty-1f)/31f); // Faster at high diff
-            while (t < songLength + songOffset)
+            float minInterval = 0.12f - 0.06f * ((difficulty-1f)/31f);
+
+            for (int i = 0; i < numGridSlots; i++)
             {
-                // Choose subdivision
-                float step = rhythmSteps[rng.Next(rhythmSteps.Count)] * beatDuration;
-                t += step;
+                float t = songOffset + i * gridStep;
                 if (t > songLength + songOffset) break;
-                // Main note
+                if (rng.NextDouble() > fillRate) continue; // skip slot for rests
+
                 int lane = rng.Next(4);
-                // Jack (repeat lane)?
+                double patternRoll = rng.NextDouble();
                 if (lastLane == lane && rng.NextDouble() < jackChance) {
-                    // force a jack
-                } else if (rng.NextDouble() < burstChance) {
-                    // Burst: 3-5 notes in rapid succession
+                    RhythmNote jackNote = new RhythmNote {
+                        lane = lane,
+                        time = t,
+                        duration = 0f
+                    };
+                    notes.Add(jackNote);
+                } else if (patternRoll < burstChance) {
                     int burstLen = rng.Next(3, 6);
                     float burstStep = minInterval * Mathf.Lerp(1f, 0.6f, (difficulty-1f)/31f);
-                    for (int b = 0; b < burstLen; b++) {
+                    for (int b = 0; b < burstLen && t + b * burstStep < songLength + songOffset; b++) {
                         int burstLane = rng.Next(4);
                         RhythmNote burstNote = new RhythmNote {
                             lane = burstLane,
@@ -479,9 +467,7 @@ namespace EverdrivenDays
                         };
                         notes.Add(burstNote);
                     }
-                    t += burstLen * minInterval;
-                } else if (rng.NextDouble() < chordChance) {
-                    // Chord: 2-3 notes at once
+                } else if (patternRoll < burstChance + chordChance) {
                     int chordSize = rng.Next(2, 4);
                     HashSet<int> chordLanes = new HashSet<int>();
                     while (chordLanes.Count < chordSize) chordLanes.Add(rng.Next(4));
@@ -494,7 +480,6 @@ namespace EverdrivenDays
                         notes.Add(chordNote);
                     }
                 } else {
-                    // Regular note
                     RhythmNote note = new RhythmNote {
                         lane = lane,
                         time = t,
@@ -503,21 +488,17 @@ namespace EverdrivenDays
                     notes.Add(note);
                 }
                 lastLane = lane;
-                // Optionally add hold notes
                 if (noteGenSettings.chanceOfHoldNote > 0 && rng.Next(100) < noteGenSettings.chanceOfHoldNote) {
                     notes[notes.Count-1].duration = noteGenSettings.holdNoteDuration * beatDuration;
                 }
-                // Stop if we've hit target note count
-                if (notes.Count >= targetNotes) break;
             }
-            // Sort notes by time
             notes.Sort((a, b) => a.time.CompareTo(b.time));
-            currentSong.notes.Clear();
+            // Do not persist notes in currentSong.notes; just use local notes for this encounter
             foreach (var n in notes) {
-                currentSong.notes.Add(n);
-                StartCoroutine(SpawnNoteAtTime(n));
+                Coroutine c = StartCoroutine(SpawnNoteAtTime(n));
+                noteSpawnCoroutines.Add(c);
             }
-            Debug.Log($"[PatternGen] Generated {currentSong.notes.Count} notes for the song");
+            Debug.Log($"[PatternGen] Generated {notes.Count} notes for the song");
         }
 
         private IEnumerator SpawnNoteAtTime(RhythmNote note)
@@ -990,32 +971,26 @@ namespace EverdrivenDays
         {
             // Base damage
             int baseDamage = 10;
-            
             // Score multiplier (0.0 - 1.0)
             float scoreMultiplier = (float)currentScore / 10000f; // Assuming 10000 is a perfect score
             scoreMultiplier = Mathf.Clamp01(scoreMultiplier);
-            
             // Combo multipliers
             float comboMultiplier = 1f;
             if (IsAllPerfect)
                 comboMultiplier = 5f; // All perfect = 5x damage
             else if (IsFullCombo)
                 comboMultiplier = 2f; // Full combo = 2x damage
-            
             // Critical hit chance based on player's crit stat
             int critChance = player != null ? player.Stats.CritChance : 5;
             bool isCritical = UnityEngine.Random.Range(0, 100) < critChance;
-            
             // Critical damage multiplier
             float critMultiplier = 1f;
             if (isCritical)
             {
                 critMultiplier = player != null ? player.Stats.CritDamage / 100f : 1.5f;
             }
-            
-            // Calculate final damage
-            int damage = Mathf.RoundToInt(baseDamage * (1f + scoreMultiplier) * comboMultiplier * critMultiplier);
-            
+            // Multiply final damage by 25 for more variety and impact
+            int damage = Mathf.RoundToInt(baseDamage * (1f + scoreMultiplier) * comboMultiplier * critMultiplier * 25f);
             // Ensure minimum damage of 1
             return Mathf.Max(1, damage);
         }

@@ -77,6 +77,7 @@ Assets/**
 
 # Ignore package
 Packages/*.zip
+Packages/com.distantlands.cozy.core
 
 # Allow only specific folders to be tracked
 !Assets/Scripts/
