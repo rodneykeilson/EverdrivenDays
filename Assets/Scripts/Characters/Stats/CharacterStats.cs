@@ -240,6 +240,11 @@ namespace EverdrivenDays
             
             // Recalculate derived stats
             RecalculateDerivedStats();
+            
+            // Show level up feedback UI if present
+            var feedback = GameObject.FindObjectOfType<EverdrivenDays.LevelUpFeedbackUI>();
+            if (feedback != null)
+                feedback.ShowLevelUpFeedback();
         }
         
         protected virtual int CalculateExperienceForNextLevel()

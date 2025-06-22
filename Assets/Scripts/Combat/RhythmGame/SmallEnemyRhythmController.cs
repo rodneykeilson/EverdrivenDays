@@ -116,7 +116,6 @@ namespace EverdrivenDays
         // Move notes from spawn to target using Lerp, matching RhythmGameController
         private void MoveNotes()
         {
-            List<GameObject> notesToRemove = new List<GameObject>();
             foreach (var noteObj in activeNotes)
             {
                 if (noteObj == null) continue;
@@ -133,17 +132,6 @@ namespace EverdrivenDays
                 float timeSinceSpawn = songPosition - (noteTime - travelTime);
                 float progress = Mathf.Clamp01(timeSinceSpawn / travelTime);
                 noteObj.transform.position = Vector3.Lerp(startPos, endPos, progress);
-
-                // Remove if past hit window
-                if (songPosition - noteTime > (okayWindow / 1000f))
-                {
-                    notesToRemove.Add(noteObj);
-                }
-            }
-            foreach (var note in notesToRemove)
-            {
-                activeNotes.Remove(note);
-                Destroy(note);
             }
         }
 
@@ -163,6 +151,9 @@ namespace EverdrivenDays
                     currentCombo = 0;
                     ShowHitFeedback(nc.Lane, "MISS", Color.red);
                     UpdateScoreUI();
+                    // MISS: 5x previous damage (was 1, now 5)
+                    if (player != null && player.Stats != null)
+                        player.Stats.TakeDamage(5);
                     notesToRemove.Add(noteObj);
                     Debug.Log($"Missed note in lane {nc.Lane} at {noteTime}, current: {songPosition}");
                 }
@@ -410,7 +401,8 @@ namespace EverdrivenDays
             Debug.Log($"[PatternGen] Generating grid-based notes for song: {currentSong.songName} BPM: {currentSong.bpm}");
             float bpm = currentSong.bpm;
             float beatDuration = 60f / bpm;
-            float songOffset = currentSong.offset;
+            // Add 1.5s of emptiness at the start for player reaction
+            float songOffset = currentSong.offset + 1.5f;
             float songLength = gameDuration;
             int difficulty = Mathf.Clamp(noteGenSettings.density, 1, 64);
 
@@ -493,6 +485,51 @@ namespace EverdrivenDays
                 }
             }
             notes.Sort((a, b) => a.time.CompareTo(b.time));
+
+            // --- Post-process to prevent unfair note clumping ---
+            float minSpacing = 0.2f; // 200ms
+            // For each lane, track the last note time
+            float[] lastNoteTimePerLane = new float[4];
+            for (int i = 0; i < 4; i++) lastNoteTimePerLane[i] = float.NegativeInfinity;
+
+            for (int i = 0; i < notes.Count; i++)
+            {
+                RhythmNote note = notes[i];
+                float lastTime = lastNoteTimePerLane[note.lane];
+                if (note.time - lastTime < minSpacing)
+                {
+                    // Try to move to another lane with enough spacing
+                    bool moved = false;
+                    for (int lane = 0; lane < 4; lane++)
+                    {
+                        if (lane == note.lane) continue;
+                        // Find last note in this lane before this note
+                        float prevTime = float.NegativeInfinity;
+                        for (int j = i - 1; j >= 0; j--) {
+                            if (notes[j].lane == lane) { prevTime = notes[j].time; break; }
+                        }
+                        if (note.time - prevTime >= minSpacing)
+                        {
+                            note.lane = lane;
+                            lastNoteTimePerLane[lane] = note.time;
+                            moved = true;
+                            break;
+                        }
+                    }
+                    if (!moved)
+                    {
+                        // Push this note forward in time
+                        float newTime = lastTime + minSpacing;
+                        note.time = newTime;
+                        lastNoteTimePerLane[note.lane] = newTime;
+                    }
+                }
+                else
+                {
+                    lastNoteTimePerLane[note.lane] = note.time;
+                }
+            }
+            notes.Sort((a, b) => a.time.CompareTo(b.time)); // Resort in case of time changes
             // Do not persist notes in currentSong.notes; just use local notes for this encounter
             foreach (var n in notes) {
                 Coroutine c = StartCoroutine(SpawnNoteAtTime(n));
@@ -704,7 +741,6 @@ namespace EverdrivenDays
             {
                 float timeDiffMs = closestTime * 1000f; // Convert to milliseconds
                 Debug.Log($"Closest note time difference: {timeDiffMs}ms (windows: perfect={perfectWindow}, good={goodWindow}, okay={okayWindow})");
-                
                 if (timeDiffMs <= perfectWindow)
                 {
                     // Perfect hit
@@ -734,24 +770,23 @@ namespace EverdrivenDays
                 }
                 else
                 {
-                    // Too far off, count as a miss
-                    // Don't break combo, but don't increase score much
+                    // Too far off, count as a BAD (early/late tap)
                     currentScore += 5;
-                    ShowHitFeedback(lane, "MISS", Color.red);
+                    ShowHitFeedback(lane, "BAD", Color.red);
                     missedHits++;
                     currentCombo = 0;
-                    Debug.Log("MISS - too far from hit window!");
+                    // BAD: 2x miss damage (miss = 5, bad = 10)
+                    if (player != null && player.Stats != null)
+                        player.Stats.TakeDamage(10);
+                    Debug.Log("BAD - too far from hit window!");
                 }
                 
                 // Update max combo
                 if (currentCombo > maxCombo)
                     maxCombo = currentCombo;
                 
-                // Remove the note
                 activeNotes.Remove(closestNote);
                 Destroy(closestNote);
-                
-                // Update UI
                 UpdateScoreUI();
             }
             else
@@ -896,190 +931,167 @@ namespace EverdrivenDays
         private void EndGame(bool playerWon)
         {
             Debug.Log("Rhythm game ended");
-            
             isPlaying = false;
-            
-            // Stop the music
             if (musicSource != null)
                 musicSource.Stop();
-            
-            // Hide the rhythm game UI
             if (rhythmGameUI != null)
                 rhythmGameUI.SetActive(false);
-            
-            // Calculate results
             int totalNotes = perfectHits + goodHits + okayHits + missedHits;
             float accuracy = totalNotes > 0 ? (float)(perfectHits * 100 + goodHits * 75 + okayHits * 50) / (totalNotes * 100) * 100f : 0f;
-            
-            // Determine if player won
-            // For small enemies, winning condition is simpler - just need decent accuracy
-            PlayerWon = accuracy >= 60f; // 60% accuracy or better to win
-            
-            // Calculate damage
+            PlayerWon = accuracy >= 60f;
             int damageToEnemy = 0;
             int damageToPlayer = 0;
-            
             if (PlayerWon)
             {
                 damageToEnemy = CalculateDamageToEnemy();
-                
-                // Apply damage to enemy
                 if (currentEnemy != null)
                 {
                     currentEnemy.TakeDamage(damageToEnemy);
-                    
-                    // Show knockback effect
                     ShowEnemyKnockbackEffect();
-                    
-                    // Check if the enemy died from this damage (health <= 0)
                     if (currentEnemy.CurrentHealth <= 0)
                     {
                         ShowEnemyDeathEffect();
+                        // Grant gold reward on enemy defeat
+                        GrantGoldReward();
                     }
                 }
             }
             else
             {
                 damageToPlayer = CalculateDamageToPlayer();
-                
-                // Apply damage to player
                 if (player != null && player.Stats != null)
                 {
                     player.Stats.TakeDamage(damageToPlayer);
                 }
             }
-            
-            // Log results
             Debug.Log($"Game Results - Score: {currentScore}, Accuracy: {accuracy:F1}%, Player Won: {PlayerWon}");
             Debug.Log($"Hit Breakdown - Perfect: {perfectHits}, Good: {goodHits}, Okay: {okayHits}, Miss: {missedHits}");
             Debug.Log($"Damage - To Enemy: {damageToEnemy}, To Player: {damageToPlayer}");
-            
-            // Re-enable player movement
             if (player != null && player.Input != null)
             {
                 player.Input.EnableMovement();
             }
-            
-            // Notify enemy that combat has ended
             if (currentEnemy != null)
             {
                 currentEnemy.OnCombatEnd(PlayerWon);
             }
         }
 
+        // Add gold reward calculation and grant logic
+        private void GrantGoldReward()
+        {
+            if (currentEnemy == null || player == null || player.Stats == null) return;
+            // Get base gold from enemy
+            int baseGold = 10;
+            if (currentEnemy.GetType().GetProperty("GoldReward") != null)
+            {
+                baseGold = (int)currentEnemy.GetType().GetProperty("GoldReward").GetValue(currentEnemy);
+            }
+            // Calculate performance multiplier (accuracy: 0.5x to 2x)
+            int totalNotes = perfectHits + goodHits + okayHits + missedHits;
+            float accuracy = totalNotes > 0 ? (float)(perfectHits * 100 + goodHits * 75 + okayHits * 50) / (totalNotes * 100) : 0f;
+            float perfMultiplier = Mathf.Lerp(0.5f, 2f, accuracy / 100f);
+            int goldReward = Mathf.RoundToInt(baseGold * perfMultiplier);
+            // Grant gold
+            player.Stats.AddGold(goldReward);
+            // Optionally, show gold feedback UI here
+            Debug.Log($"Granted {goldReward} gold (base {baseGold}, accuracy {accuracy:F1}%)");
+        }
+
+        // --- HEALING/SHOP SYSTEM ---
+// To be called from a UI button (see Unity setup checklist)
+public void HealPlayer(int healAmount, int goldCost)
+{
+    if (player == null || player.Stats == null) return;
+    if (player.Stats.Gold < goldCost)
+    {
+        Debug.Log("Not enough gold to heal!");
+        // Optionally show UI feedback
+        return;
+    }
+    player.Stats.AddGold(-goldCost);
+    player.Stats.Heal(healAmount);
+    Debug.Log($"Player healed for {healAmount} HP, spent {goldCost} gold");
+    // Optionally show heal feedback UI
+}
+// --- LEVEL UP FEEDBACK ---
+// To be called from PlayerStats.OnLevelUp event
+public void ShowLevelUpFeedback()
+{
+    // Assumes LevelUpFeedbackUI is present in the scene and referenced
+    var feedbackUI = GameObject.FindObjectOfType<EverdrivenDays.LevelUpFeedbackUI>();
+    if (feedbackUI != null)
+    {
+        feedbackUI.ShowLevelUpFeedback();
+    }
+}
+// --- UI REFERENCE CHECKLIST (for Unity setup) ---
+// 1. Assign all UI fields in the Inspector: musicSource, notePrefab, laneTargets, laneSpawnPoints, progressBar, scoreText, comboText, accuracyText, gradeText, encounterText, rhythmGameUI, encounterEffectUI.
+// 2. Add a gold display TextMeshProUGUI to your main HUD and bind it to CharacterStats.OnGoldChanged.
+// 3. Add a heal/shop panel with a heal button. Hook the button to call HealPlayer(healAmount, goldCost).
+// 4. Add LevelUpFeedbackUI to your UI canvas and assign its fields. In PlayerStats, call SmallEnemyRhythmController.ShowLevelUpFeedback() from OnLevelUp.
+// 5. Remove all item/inventory UI from the canvas.
+// 6. Test all UI connections in Play mode.
+        public void SetPlayer(Player playerRef)
+        {
+            player = playerRef;
+        }
+
+        // --- RESTORED PRIVATE METHODS ---
         private int CalculateDamageToEnemy()
         {
-            // Base damage
+            // Example: base damage + combo/accuracy bonuses
             int baseDamage = 10;
-            // Score multiplier (0.0 - 1.0)
-            float scoreMultiplier = (float)currentScore / 10000f; // Assuming 10000 is a perfect score
+            float scoreMultiplier = (float)currentScore / 10000f;
             scoreMultiplier = Mathf.Clamp01(scoreMultiplier);
-            // Combo multipliers
             float comboMultiplier = 1f;
             if (IsAllPerfect)
-                comboMultiplier = 5f; // All perfect = 5x damage
+                comboMultiplier = 5f;
             else if (IsFullCombo)
-                comboMultiplier = 2f; // Full combo = 2x damage
-            // Critical hit chance based on player's crit stat
+                comboMultiplier = 2f;
             int critChance = player != null ? player.Stats.CritChance : 5;
             bool isCritical = UnityEngine.Random.Range(0, 100) < critChance;
-            // Critical damage multiplier
-            float critMultiplier = 1f;
-            if (isCritical)
-            {
-                critMultiplier = player != null ? player.Stats.CritDamage / 100f : 1.5f;
-            }
-            // Multiply final damage by 25 for more variety and impact
+            float critMultiplier = isCritical ? (player != null ? player.Stats.CritDamage / 100f : 1.5f) : 1f;
             int damage = Mathf.RoundToInt(baseDamage * (1f + scoreMultiplier) * comboMultiplier * critMultiplier * 25f);
-            // Ensure minimum damage of 1
             return Mathf.Max(1, damage);
         }
-
         private int CalculateDamageToPlayer()
         {
-            // Base damage from misses
             int baseDamage = missedHits * 2;
-            
-            // Enemy strength factor (would come from enemy stats)
             int enemyStrength = currentEnemy != null ? currentEnemy.Strength : 5;
-            
-            // Player defense reduction
             int playerDefense = player != null ? player.Stats.Defense : 5;
-            
-            // Calculate damage with defense reduction
             int damage = Mathf.RoundToInt(baseDamage * (enemyStrength / 10f));
-            
-            // Apply defense reduction
             damage -= playerDefense;
-            
-            // Ensure minimum damage of 1
             return Mathf.Max(1, damage);
         }
-
+        private void ShowEnemyKnockbackEffect()
+        {
+            if (currentEnemy == null) return;
+            Vector3 knockbackDirection = (currentEnemy.transform.position - player.transform.position).normalized;
+            knockbackDirection.y = 0.2f;
+            if (CombatEffectsManager.Instance != null)
+                CombatEffectsManager.Instance.PlayKnockbackEffect(currentEnemy.transform.position);
+            currentEnemy.ApplyKnockback(knockbackDirection, 10f);
+        }
         private void ShowEnemyDeathEffect()
         {
             if (currentEnemy == null) return;
-            
-            // Use the CombatEffectsManager to play the death effect
             if (CombatEffectsManager.Instance != null)
-            {
                 CombatEffectsManager.Instance.PlayDeathEffect(currentEnemy.transform.position);
-            }
-            else
-            {
-                // Fallback if manager not found
-                Debug.Log("Enemy death effect shown");
-            }
         }
-
-        private void ShowEnemyKnockbackEffect()
-        {
-            if (currentEnemy == null) 
-            {
-                Debug.LogError("Cannot show knockback effect - enemy is null");
-                return;
-            }
-            
-            Debug.Log("Applying knockback effect to enemy");
-            
-            // Calculate knockback direction (away from player)
-            Vector3 knockbackDirection = (currentEnemy.transform.position - player.transform.position).normalized;
-            knockbackDirection.y = 0.2f; // Add slight upward force
-            
-            // Log the knockback parameters
-            Debug.Log($"Knockback direction: {knockbackDirection}, force: 10.0");
-            
-            // CRITICAL FIX: First play the visual effect at the enemy's position
-            if (CombatEffectsManager.Instance != null)
-            {
-                Debug.Log("Playing knockback visual effect");
-                // Play the visual effect at the enemy's position
-                CombatEffectsManager.Instance.PlayKnockbackEffect(currentEnemy.transform.position);
-            }
-            
-            // Then apply the actual knockback force
-            Debug.Log("Applying physical knockback to enemy");
-            currentEnemy.ApplyKnockback(knockbackDirection, 10f);
-        }
-        
         private IEnumerator ScaleTextAnimation(GameObject textObject, float duration)
         {
             float elapsedTime = 0f;
             Vector3 startScale = Vector3.zero;
             Vector3 targetScale = Vector3.one;
-            
             while (elapsedTime < duration)
             {
                 float t = elapsedTime / duration;
-                // Add a slight bounce effect (similar to easeOutBack)
                 float tModified = t * (1 + (1 - t) * 0.5f);
                 textObject.transform.localScale = Vector3.Lerp(startScale, targetScale, tModified);
-                
                 elapsedTime += Time.deltaTime;
                 yield return null;
             }
-            
-            // Ensure we end at exactly the target scale
             textObject.transform.localScale = targetScale;
         }
     }

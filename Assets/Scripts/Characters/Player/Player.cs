@@ -162,11 +162,11 @@ namespace EverdrivenDays
                 {
                     currentTarget = closestEnemy;
                     
-                    // Update UI
-                    if (UIManager.Instance != null)
-                    {
-                        UIManager.Instance.SetTargetedEnemy(currentTarget);
-                    }
+                    // Update UI (enemy UI removed)
+                    // if (UIManager.Instance != null)
+                    // {
+                    //     UIManager.Instance.SetTargetedEnemy(currentTarget);
+                    // }
                 }
             }
             else if (currentTarget != null)
@@ -174,11 +174,11 @@ namespace EverdrivenDays
                 // Clear target if no enemies in range
                 currentTarget = null;
                 
-                // Update UI
-                if (UIManager.Instance != null)
-                {
-                    UIManager.Instance.SetTargetedEnemy(null);
-                }
+                // Update UI (enemy UI removed)
+                // if (UIManager.Instance != null)
+                // {
+                //     UIManager.Instance.SetTargetedEnemy(null);
+                // }
             }
         }
         

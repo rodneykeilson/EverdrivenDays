@@ -15,59 +15,48 @@ namespace EverdrivenDays
         [SerializeField] private TextMeshProUGUI playerMoneyText;
         
         [Header("Menu Panels")]
-        [SerializeField] private GameObject inventoryPanel;
-        [SerializeField] private GameObject statsPanel;
         [SerializeField] private GameObject optionsPanel;
         [SerializeField] private GameObject pausePanel;
         
-        [Header("Inventory UI")]
-        [SerializeField] private Transform itemsContainer;
-        [SerializeField] private GameObject itemSlotPrefab;
-        [SerializeField] private TextMeshProUGUI itemDescriptionText;
-        
         [Header("Stats Panel")]
+        [SerializeField] private GameObject statsPanel;
         [SerializeField] private TextMeshProUGUI playerNameText;
         [SerializeField] private TextMeshProUGUI playerStatsText;
         
-        [Header("Enemy UI")]
-        [SerializeField] private GameObject enemyInfoPanel;
-        [SerializeField] private TextMeshProUGUI enemyNameText;
-        [SerializeField] private Slider enemyHealthSlider;
-        [SerializeField] private TextMeshProUGUI enemyLevelText;
-        
-        [Header("Interaction UI")]
-        [SerializeField] private GameObject interactionPrompt;
-        [SerializeField] private TextMeshProUGUI interactionText;
-        
         // References
         private Player player;
-        private InventorySystem inventorySystem;
-        private Enemy currentTargetedEnemy;
         
         // Singleton instance
         public static UIManager Instance { get; private set; }
         
         private void Awake()
         {
+            Debug.Log($"[UIManager] Awake called on {gameObject.name}, activeSelf={gameObject.activeSelf}, Instance={Instance}");
             // Setup singleton
             if (Instance != null && Instance != this)
             {
-                Destroy(gameObject);
+                Debug.LogWarning($"[UIManager] Duplicate detected, disabling {gameObject.name}");
+                gameObject.SetActive(false);
                 return;
             }
-            
             Instance = this;
             
             // Find player if not assigned
             if (player == null)
                 player = FindAnyObjectByType<Player>();
                 
-            // Find inventory system if not assigned
-            if (inventorySystem == null)
-                inventorySystem = FindAnyObjectByType<InventorySystem>();
-                
             // Disable panels by default
             CloseAllPanels();
+        }
+
+        private void OnEnable()
+        {
+            Debug.Log($"[UIManager] OnEnable called on {gameObject.name}");
+        }
+
+        private void OnDisable()
+        {
+            Debug.LogWarning($"[UIManager] OnDisable called on {gameObject.name}");
         }
         
         private void Start()
@@ -87,10 +76,6 @@ namespace EverdrivenDays
                 
             if (Input.GetKeyDown(KeyCode.Escape))
                 TogglePause();
-                
-            // Update targeted enemy info if applicable
-            if (currentTargetedEnemy != null)
-                UpdateEnemyInfo();
         }
         
         public void UpdatePlayerHUD()
@@ -129,78 +114,13 @@ namespace EverdrivenDays
                 playerMoneyText.text = $"{money} Gold";
         }
         
-        public void SetTargetedEnemy(Enemy enemy)
-        {
-            currentTargetedEnemy = enemy;
-            
-            if (enemy != null)
-            {
-                // Show enemy UI
-                if (enemyInfoPanel != null)
-                    enemyInfoPanel.SetActive(true);
-                    
-                UpdateEnemyInfo();
-            }
-            else
-            {
-                // Hide enemy UI
-                if (enemyInfoPanel != null)
-                    enemyInfoPanel.SetActive(false);
-            }
-        }
-        
-        private void UpdateEnemyInfo()
-        {
-            if (currentTargetedEnemy == null) return;
-            
-            // For now using placeholder data - in a real implementation, get from enemy
-            string enemyName = "Enemy";
-            int currentHealth = 80;
-            int maxHealth = 100;
-            int level = 1;
-            
-            // Update UI elements
-            if (enemyNameText != null)
-                enemyNameText.text = enemyName;
-                
-            if (enemyHealthSlider != null)
-            {
-                enemyHealthSlider.maxValue = maxHealth;
-                enemyHealthSlider.value = currentHealth;
-            }
-            
-            if (enemyLevelText != null)
-                enemyLevelText.text = $"Lv. {level}";
-        }
-        
-        public void ShowInteractionPrompt(string promptText)
-        {
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(true);
-                
-            if (interactionText != null)
-                interactionText.text = promptText;
-        }
-        
-        public void HideInteractionPrompt()
-        {
-            if (interactionPrompt != null)
-                interactionPrompt.SetActive(false);
-        }
-        
         public void ToggleInventory()
         {
-            if (inventoryPanel != null)
+            if (optionsPanel != null)
             {
-                bool isActive = inventoryPanel.activeSelf;
+                bool isActive = optionsPanel.activeSelf;
                 CloseAllPanels();
-                inventoryPanel.SetActive(!isActive);
-                
-                if (!isActive && inventorySystem != null)
-                {
-                    // Refresh inventory display
-                    RefreshInventoryUI();
-                }
+                optionsPanel.SetActive(!isActive);
             }
         }
         
@@ -252,73 +172,13 @@ namespace EverdrivenDays
         
         private void CloseAllPanels()
         {
-            // Close all panels but keep HUD visible
-            if (inventoryPanel != null) inventoryPanel.SetActive(false);
-            if (statsPanel != null) statsPanel.SetActive(false);
+            // Only close menu panels, not the main HUD
             if (optionsPanel != null) optionsPanel.SetActive(false);
-            
-            // Don't close pause panel here, it has special handling
-            
+            if (pausePanel != null) pausePanel.SetActive(false);
+            if (statsPanel != null) statsPanel.SetActive(false);
+            // Do NOT deactivate hudCanvas here!
             // Make sure the game is running (in case we're coming from pause)
             Time.timeScale = 1f;
-        }
-        
-        private void RefreshInventoryUI()
-        {
-            // Clear existing items
-            if (itemsContainer != null)
-            {
-                foreach (Transform child in itemsContainer)
-                {
-                    Destroy(child.gameObject);
-                }
-                
-                // This would typically use data from the inventory system
-                // For now, we'll create placeholder items
-                CreateInventoryItemSlot("Health Potion", "Restores 50 HP", 5);
-                CreateInventoryItemSlot("Mana Potion", "Restores 50 MP", 3);
-                CreateInventoryItemSlot("Bronze Sword", "+10 Attack", 1);
-                CreateInventoryItemSlot("Leather Armor", "+15 Defense", 1);
-            }
-            
-            // Clear item description
-            if (itemDescriptionText != null)
-                itemDescriptionText.text = "Select an item to see its description.";
-        }
-        
-        private void CreateInventoryItemSlot(string itemName, string description, int count)
-        {
-            if (itemSlotPrefab == null || itemsContainer == null) return;
-            
-            GameObject itemSlot = Instantiate(itemSlotPrefab, itemsContainer);
-            
-            // Set up the item slot UI
-            Transform nameTransform = itemSlot.transform.Find("ItemName");
-            Transform countTransform = itemSlot.transform.Find("ItemCount");
-            Button itemButton = itemSlot.GetComponent<Button>();
-            
-            if (nameTransform != null)
-            {
-                TextMeshProUGUI nameText = nameTransform.GetComponent<TextMeshProUGUI>();
-                if (nameText != null)
-                    nameText.text = itemName;
-            }
-            
-            if (countTransform != null)
-            {
-                TextMeshProUGUI countText = countTransform.GetComponent<TextMeshProUGUI>();
-                if (countText != null)
-                    countText.text = count > 1 ? count.ToString() : "";
-            }
-            
-            // Add click listener to show item description
-            if (itemButton != null)
-            {
-                itemButton.onClick.AddListener(() => {
-                    if (itemDescriptionText != null)
-                        itemDescriptionText.text = $"{itemName}\n{description}";
-                });
-            }
         }
         
         private void UpdateStatsPanel()
@@ -350,4 +210,4 @@ namespace EverdrivenDays
             }
         }
     }
-} 
+}

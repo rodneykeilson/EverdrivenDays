@@ -32,8 +32,6 @@ namespace EverdrivenDays
         [Header("Combat")]
         [SerializeField] private int experienceReward = 50;
         [SerializeField] private int goldReward = 25;
-        [SerializeField] private string[] possibleItemDrops;
-        [SerializeField] private float itemDropChance = 0.3f;
 
         [Header("References")]
         [SerializeField] private Transform playerTransform;
@@ -355,19 +353,6 @@ namespace EverdrivenDays
 
             // Give gold
             playerStats.AddGold(goldReward);
-
-            // Random chance to drop an item
-            if (possibleItemDrops != null && possibleItemDrops.Length > 0 && Random.value <= itemDropChance)
-            {
-                string randomItemId = possibleItemDrops[Random.Range(0, possibleItemDrops.Length)];
-
-                // Try to get the inventory system
-                InventorySystem inventory = InventorySystem.Instance;
-                if (inventory != null)
-                {
-                    inventory.AddItem(randomItemId);
-                }
-            }
         }
 
         // This method will be called when initiating the rhythm game battle
@@ -419,8 +404,19 @@ namespace EverdrivenDays
         {
             isInCombat = false;
             playerInRhythmCombat = false;
-            playerCombatIFrameEnd = Time.time + 2f; // 2 seconds i-frame
+            playerCombatIFrameEnd = 0f; // Remove i-frame freeze for all enemies
             isPlayerDetected = false; // Force re-detection after combat
+            // --- Fix: Reset all enemies' detection and state ---
+            foreach (var enemy in FindObjectsOfType<Enemy>())
+            {
+                if (enemy == null || enemy == this) continue;
+                enemy.isPlayerDetected = false;
+                if (!enemy.isDead && enemy.navMeshAgent != null)
+                {
+                    enemy.navMeshAgent.isStopped = false;
+                    enemy.currentState = EnemyState.Patrolling;
+                }
+            }
             // Resume movement if still alive
             if (!isDead && navMeshAgent != null)
             {
