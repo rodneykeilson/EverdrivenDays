@@ -9,10 +9,11 @@ namespace EverdrivenDays
         [Header("HUD Elements")]
         [SerializeField] private GameObject hudCanvas;
         [SerializeField] private TextMeshProUGUI playerHealthText;
-        [SerializeField] private Slider playerHealthSlider;
+        [SerializeField] private UnityEngine.UI.Image playerHealthFillImage;
         [SerializeField] private TextMeshProUGUI playerLevelText;
-        [SerializeField] private Slider playerExpSlider;
+        [SerializeField] private UnityEngine.UI.Image playerExpFillImage;
         [SerializeField] private TextMeshProUGUI playerMoneyText;
+        [SerializeField] private TextMeshProUGUI playerExpText;
         
         [Header("Menu Panels")]
         [SerializeField] private GameObject optionsPanel;
@@ -22,6 +23,12 @@ namespace EverdrivenDays
         [SerializeField] private GameObject statsPanel;
         [SerializeField] private TextMeshProUGUI playerNameText;
         [SerializeField] private TextMeshProUGUI playerStatsText;
+        
+        [Header("Health and Exp Bars")]
+        [SerializeField] private RectTransform playerHealthBarRect;
+        [SerializeField] private float playerHealthBarMaxWidth = 200f;
+        [SerializeField] private RectTransform playerExpBarRect;
+        [SerializeField] private float playerExpBarMaxWidth = 200f;
         
         // References
         private Player player;
@@ -81,37 +88,45 @@ namespace EverdrivenDays
         public void UpdatePlayerHUD()
         {
             if (player == null) return;
-            
-            // For now we're using placeholder data
-            // In a real implementation, you would get this from the player
-            int currentHealth = 100;
-            int maxHealth = 100;
-            int currentLevel = 1;
-            int currentExp = 50;
-            int expToNextLevel = 100;
-            int money = 500;
-            
-            // Update UI elements
+            var stats = player.Stats;
+            if (stats == null) return;
+
+            int currentHealth = stats.CurrentHealth;
+            int maxHealth = stats.MaxHealth;
+            int currentLevel = stats.Level;
+            int currentExp = stats.Experience;
+            int expToNextLevel = stats.ExperienceToNextLevel;
+            int money = stats.Gold;
+
             if (playerHealthText != null)
                 playerHealthText.text = $"{currentHealth}/{maxHealth}";
-                
-            if (playerHealthSlider != null)
+
+            // Resize health bar horizontally
+            if (playerHealthBarRect != null)
             {
-                playerHealthSlider.maxValue = maxHealth;
-                playerHealthSlider.value = currentHealth;
+                float width = maxHealth > 0 ? playerHealthBarMaxWidth * ((float)currentHealth / maxHealth) : 0f;
+                var size = playerHealthBarRect.sizeDelta;
+                size.x = width;
+                playerHealthBarRect.sizeDelta = size;
             }
-            
+
             if (playerLevelText != null)
-                playerLevelText.text = $"Lv. {currentLevel}";
-                
-            if (playerExpSlider != null)
+                playerLevelText.text = $"{currentLevel}";
+
+            // Resize exp bar horizontally (to the right)
+            if (playerExpBarRect != null)
             {
-                playerExpSlider.maxValue = expToNextLevel;
-                playerExpSlider.value = currentExp;
+                float width = expToNextLevel > 0 ? playerExpBarMaxWidth * ((float)currentExp / expToNextLevel) : 0f;
+                var size = playerExpBarRect.sizeDelta;
+                size.x = width;
+                playerExpBarRect.sizeDelta = size;
             }
-            
+
+            if (playerExpText != null)
+                playerExpText.text = $"{currentExp}/{expToNextLevel}";
+
             if (playerMoneyText != null)
-                playerMoneyText.text = $"{money} Gold";
+                playerMoneyText.text = $"{money}";
         }
         
         public void ToggleInventory()
@@ -184,20 +199,21 @@ namespace EverdrivenDays
         private void UpdateStatsPanel()
         {
             if (player == null) return;
-            
-            // Placeholder player stats
-            string playerName = "Player";
-            int level = 1;
-            int hp = 100;
-            int mp = 50;
-            int strength = 10;
-            int defense = 8;
-            int agility = 12;
-            int intelligence = 9;
-            
+            var stats = player.Stats;
+            if (stats == null) return;
+
+            string playerName = stats.Name;
+            int level = stats.Level;
+            int hp = stats.CurrentHealth;
+            int mp = stats.CurrentMana;
+            int strength = stats.Strength;
+            int defense = stats.Defense;
+            int agility = stats.Agility;
+            int intelligence = stats.Intelligence;
+
             if (playerNameText != null)
                 playerNameText.text = playerName;
-                
+
             if (playerStatsText != null)
             {
                 playerStatsText.text = $"Level: {level}\n" +
