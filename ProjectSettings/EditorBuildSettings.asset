@@ -6,8 +6,14 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Scenes/Title Screen.unity
+    guid: 6040a9365d556ce499d27fa56fa1f0f6
+  - enabled: 1
+    path: Assets/Scenes/WorldMap.unity
+    guid: 4ed259ac0d6d6c84692ea57ab33739b4
+  - enabled: 1
+    path: Assets/Scenes/CaveOfBeginning.unity
+    guid: 6212a1370364e2c4db829b96233c7b60
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
