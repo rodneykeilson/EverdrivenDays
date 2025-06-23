@@ -267,8 +267,8 @@ namespace EverdrivenDays
         private void SelectSong(AudioClip specificSongClip = null)
         {
             Debug.Log("Selecting song for rhythm game...");
-            // Always reset currentSong so a song is selected every time
             currentSong = null;
+            Enemy currentEnemyRef = currentEnemy; // Use the current enemy reference if available
             // If a specific song clip is provided, try to find it in available songs
             if (specificSongClip != null)
             {
@@ -283,12 +283,22 @@ namespace EverdrivenDays
                     }
                 }
             }
-            // If no song was found or specified, pick a random one
+            // If no song was found or specified, pick a random one that matches the enemy (or any if none assigned)
             if (currentSong == null && availableSongs.Count > 0)
             {
-                int randomIndex = UnityEngine.Random.Range(0, availableSongs.Count);
-                currentSong = availableSongs[randomIndex];
-                Debug.Log($"Selected random song: {currentSong.songName} (index {randomIndex} of {availableSongs.Count})");
+                List<SongData> filtered = new List<SongData>();
+                foreach (var song in availableSongs)
+                {
+                    if (song.allowedEnemies == null || song.allowedEnemies.Count == 0 || (currentEnemyRef != null && song.allowedEnemies.Contains(currentEnemyRef)))
+                        filtered.Add(song);
+                }
+                if (filtered.Count == 0)
+                {
+                    filtered = availableSongs; // fallback to all if none match
+                }
+                int randomIndex = UnityEngine.Random.Range(0, filtered.Count);
+                currentSong = filtered[randomIndex];
+                Debug.Log($"Selected random song: {currentSong.songName} (index {randomIndex} of {filtered.Count})");
             }
             else if (availableSongs.Count == 0)
             {
@@ -1052,7 +1062,9 @@ public void ShowLevelUpFeedback()
             int critChance = player != null ? player.Stats.CritChance : 5;
             bool isCritical = UnityEngine.Random.Range(0, 100) < critChance;
             float critMultiplier = isCritical ? (player != null ? player.Stats.CritDamage / 100f : 1.5f) : 1f;
-            int damage = Mathf.RoundToInt(baseDamage * (1f + scoreMultiplier) * comboMultiplier * critMultiplier * 25f);
+            // --- NEW: Multiply by number of perfect hits ---
+            int perfectMultiplier = Mathf.Max(1, perfectHits); // At least 1
+            int damage = Mathf.RoundToInt(baseDamage * (1f + scoreMultiplier) * comboMultiplier * critMultiplier * perfectMultiplier);
             return Mathf.Max(1, damage);
         }
         private int CalculateDamageToPlayer()

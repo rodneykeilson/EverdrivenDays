@@ -28,6 +28,8 @@ namespace EverdrivenDays
         public bool generateNotes = true; // Whether to procedurally generate notes
         [Tooltip("Override the duration of this song for rhythm game (in seconds). 0 = use full song length.")]
         public float customDuration = 0f;
+        [SerializeField, Tooltip("Assign one or more enemies that this song can be used for. Leave empty to allow any enemy.")]
+        public List<Enemy> allowedEnemies = new List<Enemy>();
     }
 
     [Serializable]
@@ -677,4 +679,4 @@ namespace EverdrivenDays
     }
 
     
-} 
+}

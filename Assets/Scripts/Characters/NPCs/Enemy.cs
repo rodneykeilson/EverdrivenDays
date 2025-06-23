@@ -203,7 +203,7 @@ namespace EverdrivenDays
             if (distanceToPlayer <= attackRange)
             {
                 currentState = EnemyState.Attacking;
-                
+
                 // Try to start battle if we're close enough and not on cooldown
                 if (canStartBattle && !isInCombat)
                 {
@@ -364,9 +364,9 @@ namespace EverdrivenDays
                 Debug.Log("Enemy is on battle cooldown, cannot start battle yet");
                 return;
             }
-            
-            Debug.Log("Starting battle with enemy");    
-            
+
+            Debug.Log("Starting battle with enemy");
+
             isInCombat = true;
             playerInRhythmCombat = true;
 
@@ -379,7 +379,6 @@ namespace EverdrivenDays
             // Different behavior based on enemy type
             if (enemyType == EnemyType.Small)
             {
-                // For small enemies, use the small enemy rhythm controller
                 SmallEnemyRhythmController controller = FindObjectOfType<SmallEnemyRhythmController>();
                 if (controller != null)
                 {
@@ -388,14 +387,24 @@ namespace EverdrivenDays
                 }
                 else
                 {
-                    // Fall back to regular combat manager if small controller not found
                     CombatManager.Instance?.InitiateCombat(this);
                 }
             }
-            else
+            else // Boss
             {
-                // For boss enemies, use the regular combat manager
-                CombatManager.Instance?.InitiateCombat(this);
+                BossRhythmController bossController = FindObjectOfType<BossRhythmController>();
+                if (bossController != null)
+                {
+                    Player player = FindObjectOfType<Player>();
+                    // Set the current enemy reference for encounter text
+                    var field = bossController.GetType().GetField("currentEnemy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (field != null) field.SetValue(bossController, this);
+                    bossController.StartBossEncounter(player);
+                }
+                else
+                {
+                    CombatManager.Instance?.InitiateCombat(this);
+                }
             }
         }
 
@@ -433,9 +442,9 @@ namespace EverdrivenDays
         {
             canStartBattle = false;
             Debug.Log("Battle cooldown started");
-            
+
             yield return new WaitForSeconds(5f); // 5 second cooldown
-            
+
             canStartBattle = true;
             Debug.Log("Battle cooldown ended, enemy can engage again");
         }
@@ -450,14 +459,14 @@ namespace EverdrivenDays
         // Apply knockback effect
         public void ApplyKnockback(Vector3 direction, float force)
         {
-            if (isDead) 
+            if (isDead)
             {
                 Debug.Log("Cannot apply knockback - enemy is dead");
                 return;
             }
 
             Debug.Log($"Enemy {name} - Starting knockback with direction {direction} and force {force}");
-            
+
             // Start knockback coroutine
             StartCoroutine(KnockbackCoroutine(direction, force));
         }
@@ -481,14 +490,14 @@ namespace EverdrivenDays
                 // Make sure rigidbody is not kinematic during knockback
                 bool wasKinematic = rb.isKinematic;
                 rb.isKinematic = false;
-                
+
                 // Apply the actual force
                 rb.AddForce(direction * force, ForceMode.Impulse);
                 Debug.Log($"Applied force: {direction * force} to enemy rigidbody");
-                
+
                 // Wait for knockback to complete
                 yield return new WaitForSeconds(0.5f);
-                
+
                 // Restore original kinematic state
                 rb.isKinematic = wasKinematic;
             }
@@ -552,11 +561,11 @@ namespace EverdrivenDays
             // Detection range
             Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(transform.position, detectionRange);
-            
+
             // Attack range
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, attackRange);
-            
+
             // Patrol radius
             Gizmos.color = Color.blue;
             Gizmos.DrawWireSphere(startPosition, patrolRadius);
