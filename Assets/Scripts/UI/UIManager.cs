@@ -25,10 +25,8 @@ namespace EverdrivenDays
         [SerializeField] private TextMeshProUGUI playerStatsText;
         
         [Header("Health and Exp Bars")]
-        [SerializeField] private RectTransform playerHealthBarRect;
-        [SerializeField] private float playerHealthBarMaxWidth = 200f;
-        [SerializeField] private RectTransform playerExpBarRect;
-        [SerializeField] private float playerExpBarMaxWidth = 200f;
+        [SerializeField] private Slider playerHealthBarSlider;
+        [SerializeField] private Slider playerExpBarSlider;
         
         // References
         private Player player;
@@ -101,25 +99,21 @@ namespace EverdrivenDays
             if (playerHealthText != null)
                 playerHealthText.text = $"{currentHealth}/{maxHealth}";
 
-            // Resize health bar horizontally
-            if (playerHealthBarRect != null)
+            // Use Slider for health bar
+            if (playerHealthBarSlider != null)
             {
-                float width = maxHealth > 0 ? playerHealthBarMaxWidth * ((float)currentHealth / maxHealth) : 0f;
-                var size = playerHealthBarRect.sizeDelta;
-                size.x = width;
-                playerHealthBarRect.sizeDelta = size;
+                playerHealthBarSlider.maxValue = maxHealth;
+                playerHealthBarSlider.value = currentHealth;
             }
 
             if (playerLevelText != null)
                 playerLevelText.text = $"{currentLevel}";
 
-            // Resize exp bar horizontally (to the right)
-            if (playerExpBarRect != null)
+            // Use Slider for exp bar
+            if (playerExpBarSlider != null)
             {
-                float width = expToNextLevel > 0 ? playerExpBarMaxWidth * ((float)currentExp / expToNextLevel) : 0f;
-                var size = playerExpBarRect.sizeDelta;
-                size.x = width;
-                playerExpBarRect.sizeDelta = size;
+                playerExpBarSlider.maxValue = expToNextLevel;
+                playerExpBarSlider.value = currentExp;
             }
 
             if (playerExpText != null)
