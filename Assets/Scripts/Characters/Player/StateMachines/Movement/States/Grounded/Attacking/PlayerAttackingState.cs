@@ -54,7 +54,7 @@ namespace EverdrivenDays
         public override void OnAnimationTransitionEvent()
         {
             // Only transition if not in the middle of a combo attack
-            if (IsConsecutive() && stateMachine.Player.Input.PlayerActions.Attack.IsPressed())
+            if (IsConsecutive() /*&& stateMachine.Player.Input.PlayerActions.Attack.IsPressed()*/)
             {
                 return;
             }
@@ -124,8 +124,6 @@ namespace EverdrivenDays
             if (consecutiveAttacksUsed == groundedData.AttackData.ConsecutiveAttacksLimitAmount)
             {
                 consecutiveAttacksUsed = 0;
-
-                stateMachine.Player.Input.DisableActionFor(stateMachine.Player.Input.PlayerActions.Attack, groundedData.AttackData.AttackLimitReachedCooldown);
             }
         }
 

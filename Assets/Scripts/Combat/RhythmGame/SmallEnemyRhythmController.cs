@@ -30,13 +30,28 @@ namespace EverdrivenDays
         [SerializeField] private float okayWindow = 90f; // Time in milliseconds
         [SerializeField] private float encounterEffectDuration = 1f; // Duration for the encounter effect
         [SerializeField] private AudioClip encounterSFX;
-        
+
         [Header("Songs")]
         [SerializeField] private List<SongData> availableSongs = new List<SongData>();
         [SerializeField] private NoteGenerationSettings noteGenSettings = new NoteGenerationSettings();
 
         [Header("Key Bindings")]
         [SerializeField] private KeyCode[] laneKeys = new KeyCode[4] { KeyCode.D, KeyCode.F, KeyCode.J, KeyCode.K };
+
+        [Header("Post-Battle Banter")]
+        [SerializeField] private bool postBattleBanter = true; // Default checked
+        [Tooltip("Dialog lines to randomly choose from after battle. Assign 5 or more banter lines here.")]
+        [SerializeField] private List<DialogLine> postBattleBanterLines = new List<DialogLine>();
+
+        [Header("First Boss Defeat")] // UPDATED
+        [Tooltip("Dialog sequence to show after defeating the first boss.")]
+        [SerializeField] private List<DialogLine> firstBossDefeatDialog = new List<DialogLine>();
+        [Tooltip("Assign the specific Enemy object that is the first boss.")]
+        [SerializeField] private Enemy firstBossEnemy;
+        [Tooltip("Reference to AdvancedLoadingBar for async scene loading (optional)")]
+        [SerializeField] private AdvancedLoadingBar loadingBar;
+        [Tooltip("Name of the WorldMap scene to load after first boss dialog.")]
+        [SerializeField] private string worldMapSceneName = "WorldMap";
 
         // Scoring
         private int currentScore = 0;
@@ -168,42 +183,42 @@ namespace EverdrivenDays
         private IEnumerator ShowEncounterEffect()
         {
             Debug.Log("Showing encounter effect");
-            
+
             // Hide rhythm game UI during encounter effect
             if (rhythmGameUI != null)
                 rhythmGameUI.SetActive(false);
-            
+
             // Show encounter effect UI
             if (encounterEffectUI != null)
             {
                 encounterEffectUI.SetActive(true);
-                
+
                 // Set encounter text
                 if (encounterText != null)
                 {
                     encounterText.text = $"Battle with {currentEnemy.name}!";
                     StartCoroutine(ScaleTextAnimation(encounterText.gameObject, 0.5f));
                 }
-                
+
                 // Play encounter sound effect with a dedicated AudioSource to control its duration
                 if (encounterSFX != null)
                 {
                     // Create a temporary GameObject with AudioSource
                     GameObject tempAudio = new GameObject("TempEncounterAudio");
                     AudioSource audioSource = tempAudio.AddComponent<AudioSource>();
-                    
+
                     // Configure the audio source
                     audioSource.clip = encounterSFX;
                     audioSource.volume = 1.0f;
                     audioSource.spatialBlend = 0f; // 2D sound
                     audioSource.Play();
-                    
+
                     // Destroy after 1 second to cut the sound
                     Destroy(tempAudio, 1.0f);
-                    
+
                     Debug.Log("Playing encounter sound effect (limited to 1 second)");
                 }
-                
+
                 // Use CombatEffectsManager to show encounter effect
                 if (CombatEffectsManager.Instance != null)
                 {
@@ -211,26 +226,26 @@ namespace EverdrivenDays
                     CombatEffectsManager.Instance.PlayEncounterEffect(currentEnemy.transform.position);
                 }
             }
-            
+
             // Wait for the encounter effect duration
             yield return new WaitForSeconds(encounterEffectDuration);
-            
+
             // Hide encounter effect UI
             if (encounterEffectUI != null)
                 encounterEffectUI.SetActive(false);
-            
+
             // Start the actual rhythm game
             StartActualGame();
         }
 
-        public void StartGame(Enemy enemy, Player playerRef, AudioClip songClip = null) 
+        public void StartGame(Enemy enemy, Player playerRef, AudioClip songClip = null)
         {
             Debug.Log($"Starting rhythm game with enemy: {enemy.name}");
-            
+
             // Store references
             currentEnemy = enemy;
             player = playerRef;
-            
+
             // Reset game state
             currentScore = 0;
             currentCombo = 0;
@@ -239,7 +254,7 @@ namespace EverdrivenDays
             goodHits = 0;
             okayHits = 0;
             missedHits = 0;
-            
+
             // Clear any active notes
             foreach (var note in activeNotes)
             {
@@ -247,19 +262,19 @@ namespace EverdrivenDays
                     Destroy(note);
             }
             activeNotes.Clear();
-            
+
             // Select a song
             SelectSong(songClip);
-            
+
             // Store the current state of the HUD instead of always hiding it
             GameObject hudUI = GameObject.FindGameObjectWithTag("HUD");
-            
+
             // Disable player movement during the rhythm game
             if (player != null && player.Input != null)
             {
                 player.Input.DisableMovement();
             }
-            
+
             // Show encounter effect first, then start the actual game
             StartCoroutine(ShowEncounterEffect());
         }
@@ -310,9 +325,12 @@ namespace EverdrivenDays
         {
             Debug.Log("Starting rhythm game...");
             // Set gameDuration from per-song override or clip length
-            if (currentSong != null && currentSong.songClip != null) {
+            if (currentSong != null && currentSong.songClip != null)
+            {
                 gameDuration = (currentSong.customDuration > 0f) ? currentSong.customDuration : currentSong.songClip.length;
-            } else {
+            }
+            else
+            {
                 gameDuration = 15f;
             }
             // Show rhythm game UI
@@ -395,9 +413,12 @@ namespace EverdrivenDays
             activeNotes.Clear();
             // Always generate a fresh set of notes for every encounter
             // Set gameDuration from per-song override or clip length
-            if (currentSong != null && currentSong.songClip != null) {
+            if (currentSong != null && currentSong.songClip != null)
+            {
                 gameDuration = (currentSong.customDuration > 0f) ? currentSong.customDuration : currentSong.songClip.length;
-            } else {
+            }
+            else
+            {
                 gameDuration = 15f;
             }
             // Use advanced pattern generator
@@ -421,7 +442,7 @@ namespace EverdrivenDays
             if (noteGenSettings.useQuarterNotes) rhythmSteps.Add(1f);
             if (noteGenSettings.useEighthNotes) rhythmSteps.Add(0.5f);
             if (noteGenSettings.useSixteenthNotes) rhythmSteps.Add(0.25f);
-            if (noteGenSettings.useTriplets) rhythmSteps.Add(1f/3f);
+            if (noteGenSettings.useTriplets) rhythmSteps.Add(1f / 3f);
             if (rhythmSteps.Count == 0) rhythmSteps.Add(1f);
 
             // Find smallest subdivision
@@ -437,10 +458,10 @@ namespace EverdrivenDays
             List<RhythmNote> notes = new List<RhythmNote>();
             System.Random rng = new System.Random();
             int lastLane = -1;
-            float burstChance = Mathf.Lerp(0.05f, 0.25f, (difficulty-1f)/31f);
-            float jackChance = Mathf.Lerp(0.02f, 0.15f, (difficulty-1f)/31f);
-            float chordChance = Mathf.Lerp(0.10f, 0.25f, (difficulty-1f)/31f);
-            float minInterval = 0.12f - 0.06f * ((difficulty-1f)/31f);
+            float burstChance = Mathf.Lerp(0.05f, 0.25f, (difficulty - 1f) / 31f);
+            float jackChance = Mathf.Lerp(0.02f, 0.15f, (difficulty - 1f) / 31f);
+            float chordChance = Mathf.Lerp(0.10f, 0.25f, (difficulty - 1f) / 31f);
+            float minInterval = 0.12f - 0.06f * ((difficulty - 1f) / 31f);
 
             for (int i = 0; i < numGridSlots; i++)
             {
@@ -450,39 +471,52 @@ namespace EverdrivenDays
 
                 int lane = rng.Next(4);
                 double patternRoll = rng.NextDouble();
-                if (lastLane == lane && rng.NextDouble() < jackChance) {
-                    RhythmNote jackNote = new RhythmNote {
+                if (lastLane == lane && rng.NextDouble() < jackChance)
+                {
+                    RhythmNote jackNote = new RhythmNote
+                    {
                         lane = lane,
                         time = t,
                         duration = 0f
                     };
                     notes.Add(jackNote);
-                } else if (patternRoll < burstChance) {
+                }
+                else if (patternRoll < burstChance)
+                {
                     int burstLen = rng.Next(3, 6);
-                    float burstStep = minInterval * Mathf.Lerp(1f, 0.6f, (difficulty-1f)/31f);
-                    for (int b = 0; b < burstLen && t + b * burstStep < songLength + songOffset; b++) {
+                    float burstStep = minInterval * Mathf.Lerp(1f, 0.6f, (difficulty - 1f) / 31f);
+                    for (int b = 0; b < burstLen && t + b * burstStep < songLength + songOffset; b++)
+                    {
                         int burstLane = rng.Next(4);
-                        RhythmNote burstNote = new RhythmNote {
+                        RhythmNote burstNote = new RhythmNote
+                        {
                             lane = burstLane,
                             time = t + b * burstStep,
                             duration = 0f
                         };
                         notes.Add(burstNote);
                     }
-                } else if (patternRoll < burstChance + chordChance) {
+                }
+                else if (patternRoll < burstChance + chordChance)
+                {
                     int chordSize = rng.Next(2, 4);
                     HashSet<int> chordLanes = new HashSet<int>();
                     while (chordLanes.Count < chordSize) chordLanes.Add(rng.Next(4));
-                    foreach (int chordLane in chordLanes) {
-                        RhythmNote chordNote = new RhythmNote {
+                    foreach (int chordLane in chordLanes)
+                    {
+                        RhythmNote chordNote = new RhythmNote
+                        {
                             lane = chordLane,
                             time = t,
                             duration = 0f
                         };
                         notes.Add(chordNote);
                     }
-                } else {
-                    RhythmNote note = new RhythmNote {
+                }
+                else
+                {
+                    RhythmNote note = new RhythmNote
+                    {
                         lane = lane,
                         time = t,
                         duration = 0f
@@ -490,8 +524,9 @@ namespace EverdrivenDays
                     notes.Add(note);
                 }
                 lastLane = lane;
-                if (noteGenSettings.chanceOfHoldNote > 0 && rng.Next(100) < noteGenSettings.chanceOfHoldNote) {
-                    notes[notes.Count-1].duration = noteGenSettings.holdNoteDuration * beatDuration;
+                if (noteGenSettings.chanceOfHoldNote > 0 && rng.Next(100) < noteGenSettings.chanceOfHoldNote)
+                {
+                    notes[notes.Count - 1].duration = noteGenSettings.holdNoteDuration * beatDuration;
                 }
             }
             notes.Sort((a, b) => a.time.CompareTo(b.time));
@@ -515,7 +550,8 @@ namespace EverdrivenDays
                         if (lane == note.lane) continue;
                         // Find last note in this lane before this note
                         float prevTime = float.NegativeInfinity;
-                        for (int j = i - 1; j >= 0; j--) {
+                        for (int j = i - 1; j >= 0; j--)
+                        {
                             if (notes[j].lane == lane) { prevTime = notes[j].time; break; }
                         }
                         if (note.time - prevTime >= minSpacing)
@@ -541,7 +577,8 @@ namespace EverdrivenDays
             }
             notes.Sort((a, b) => a.time.CompareTo(b.time)); // Resort in case of time changes
             // Do not persist notes in currentSong.notes; just use local notes for this encounter
-            foreach (var n in notes) {
+            foreach (var n in notes)
+            {
                 Coroutine c = StartCoroutine(SpawnNoteAtTime(n));
                 noteSpawnCoroutines.Add(c);
             }
@@ -597,31 +634,31 @@ namespace EverdrivenDays
 
         private void SpawnNote(RhythmNote note)
         {
-            if (!isPlaying || notePrefab == null || note.lane < 0 || note.lane >= 4) 
+            if (!isPlaying || notePrefab == null || note.lane < 0 || note.lane >= 4)
             {
                 Debug.LogWarning($"Cannot spawn note: isPlaying={isPlaying}, notePrefab={(notePrefab != null ? "valid" : "null")}, lane={note.lane}");
                 return;
             }
-            
+
             // Make sure the UI is active
             if (rhythmGameUI == null || !rhythmGameUI.activeInHierarchy)
             {
                 Debug.LogError("Cannot spawn note: Rhythm game UI is null or inactive");
                 return;
             }
-            
+
             // Make sure lane spawn points are set up
             if (laneSpawnPoints == null || laneSpawnPoints.Length <= note.lane || laneSpawnPoints[note.lane] == null)
             {
                 Debug.LogError($"Cannot spawn note: Lane spawn point {note.lane} is not set up properly");
                 return;
             }
-            
+
             // Instantiate the note and parent it to the rhythmGameUI for proper UI hierarchy (like RhythmGameController)
             GameObject noteObj = Instantiate(notePrefab);
             noteObj.transform.SetParent(rhythmGameUI.transform, false);
             noteObj.SetActive(true);
-            
+
             // Get the RectTransform component
             RectTransform noteRect = noteObj.GetComponent<RectTransform>();
             if (noteRect != null)
@@ -630,13 +667,13 @@ namespace EverdrivenDays
                 noteRect.anchorMin = new Vector2(0.5f, 0.5f);
                 noteRect.anchorMax = new Vector2(0.5f, 0.5f);
                 noteRect.pivot = new Vector2(0.5f, 0.5f);
-                
+
                 // Set initial position at spawn point
                 noteRect.position = laneSpawnPoints[note.lane].position;
-                
+
                 // Make sure the note is properly sized and visible
                 noteRect.sizeDelta = new Vector2(80, 80); // Larger size to ensure visibility
-                
+
                 Debug.Log($"Spawned note at lane {note.lane}, position: {noteRect.position}, size: {noteRect.sizeDelta}");
             }
             else
@@ -645,7 +682,7 @@ namespace EverdrivenDays
                 Destroy(noteObj);
                 return;
             }
-            
+
             // Set up the note's properties
             NoteController noteController = noteObj.GetComponent<NoteController>();
             if (noteController != null)
@@ -661,7 +698,7 @@ namespace EverdrivenDays
                 Destroy(noteObj);
                 return;
             }
-            
+
             // Set the note's appearance based on lane
             Image noteImage = noteObj.GetComponent<Image>();
             if (noteImage != null)
@@ -669,7 +706,7 @@ namespace EverdrivenDays
                 // CRITICAL FIX: Ensure the image is visible
                 noteImage.enabled = true;
                 noteImage.raycastTarget = false; // No need for raycasting
-                
+
                 // Different color for each lane with full opacity
                 switch (note.lane)
                 {
@@ -693,10 +730,10 @@ namespace EverdrivenDays
                 Destroy(noteObj);
                 return;
             }
-            
+
             // Add to active notes
             activeNotes.Add(noteObj);
-            
+
             Debug.Log($"Note successfully spawned in lane {note.lane} at position {noteObj.transform.position}");
         }
 
@@ -704,7 +741,7 @@ namespace EverdrivenDays
         {
             // Calculate how many notes to generate based on game duration
             int totalNotes = Mathf.RoundToInt(gameDuration * 1.5f); // About 1.5 notes per second
-            
+
             for (int i = 0; i < totalNotes; i++)
             {
                 // Create a note
@@ -714,7 +751,7 @@ namespace EverdrivenDays
                     time = (i + 1) * (gameDuration / totalNotes),
                     duration = 0f // Tap notes for small enemies
                 };
-                
+
                 // Schedule note spawn
                 StartCoroutine(SpawnNoteAtTime(note));
             }
@@ -723,21 +760,21 @@ namespace EverdrivenDays
         private void ProcessLanePress(int lane)
         {
             Debug.Log($"Lane {lane} pressed at time {songPosition}");
-            
+
             // Find the closest note in this lane
             GameObject closestNote = null;
             float closestTime = float.MaxValue;
-            
+
             foreach (var note in activeNotes)
             {
                 if (note == null) continue;
-                
+
                 NoteController noteController = note.GetComponent<NoteController>();
                 if (noteController != null && noteController.Lane == lane)
                 {
                     float timeDifference = Mathf.Abs(noteController.TargetTime - songPosition);
                     Debug.Log($"Found note in lane {lane} with time difference: {timeDifference * 1000f}ms");
-                    
+
                     if (timeDifference < closestTime)
                     {
                         closestTime = timeDifference;
@@ -745,7 +782,7 @@ namespace EverdrivenDays
                     }
                 }
             }
-            
+
             // If we found a note and it's within the hit window
             if (closestNote != null)
             {
@@ -790,11 +827,11 @@ namespace EverdrivenDays
                         player.Stats.TakeDamage(10);
                     Debug.Log("BAD - too far from hit window!");
                 }
-                
+
                 // Update max combo
                 if (currentCombo > maxCombo)
                     maxCombo = currentCombo;
-                
+
                 activeNotes.Remove(closestNote);
                 Destroy(closestNote);
                 UpdateScoreUI();
@@ -849,11 +886,11 @@ namespace EverdrivenDays
         private void CheckForMissedNotes()
         {
             List<GameObject> notesToRemove = new List<GameObject>();
-            
+
             foreach (var note in activeNotes)
             {
                 if (note == null) continue;
-                
+
                 NoteController noteController = note.GetComponent<NoteController>();
                 if (noteController != null)
                 {
@@ -865,18 +902,18 @@ namespace EverdrivenDays
                         missedHits++;
                         currentCombo = 0;
                         notesToRemove.Add(note);
-                        
+
                         // Show miss feedback (use new signature)
                         ShowHitFeedback(noteController.Lane, "MISS", Color.red);
-                        
+
                         // Update UI
                         UpdateScoreUI();
-                        
+
                         Debug.Log($"Missed note in lane {noteController.Lane} at time {noteController.TargetTime}, current time: {songPosition}");
                     }
                 }
             }
-            
+
             // Remove missed notes
             foreach (var note in notesToRemove)
             {
@@ -892,10 +929,10 @@ namespace EverdrivenDays
         {
             if (scoreText != null)
                 scoreText.text = currentScore.ToString();
-            
+
             if (comboText != null)
                 comboText.text = currentCombo.ToString();
-            
+
             if (accuracyText != null)
             {
                 int totalNotes = perfectHits + goodHits + okayHits + missedHits;
@@ -909,17 +946,18 @@ namespace EverdrivenDays
                     accuracyText.text = "Accuracy: 0%";
                 }
             }
-            
+
             if (gradeText != null)
             {
                 int totalNotes = perfectHits + goodHits + okayHits + missedHits;
                 if (totalNotes > 0)
                 {
                     float accuracy = (float)(perfectHits * 100 + goodHits * 75 + okayHits * 50) / (totalNotes * 100) * 100f;
-                    
+
                     string grade;
                     if (accuracy >= 95f)
                         grade = "S";
+
                     else if (accuracy >= 90f)
                         grade = "A+";
                     else if (accuracy >= 80f)
@@ -932,7 +970,7 @@ namespace EverdrivenDays
                         grade = "D";
                     else
                         grade = "F";
-                    
+
                     gradeText.text = grade;
                 }
             }
@@ -963,6 +1001,12 @@ namespace EverdrivenDays
                         ShowEnemyDeathEffect();
                         // Grant gold reward on enemy defeat
                         GrantGoldReward();
+                        // --- FIRST BOSS DEFEAT LOGIC ---
+                        if (IsFirstBoss(currentEnemy))
+                        {
+                            StartCoroutine(HandleFirstBossDefeatSequence());
+                            return; // Don't continue normal banter/flow
+                        }
                     }
                 }
             }
@@ -985,7 +1029,13 @@ namespace EverdrivenDays
             {
                 currentEnemy.OnCombatEnd(PlayerWon);
             }
+            // --- POST-BATTLE BANTER ---
+            if (postBattleBanter && !IsBanterExcluded(currentEnemy))
+            {
+                TriggerPostBattleBanter();
+            }
         }
+
 
         // Add gold reward calculation and grant logic
         private void GrantGoldReward()
@@ -1008,40 +1058,91 @@ namespace EverdrivenDays
             Debug.Log($"Granted {goldReward} gold (base {baseGold}, accuracy {accuracy:F1}%)");
         }
 
+        // Returns true if this enemy should NOT get post-battle banter
+        private bool IsBanterExcluded(Enemy enemy)
+        {
+            if (enemy == null) return true;
+            // Example: check by tag, name, or a custom property
+            if (enemy.CompareTag("Boss") || enemy.name == "FirstEnemy")
+                return true;
+            return false;
+        }
+        // Triggers a random post-battle dialog line
+        private void TriggerPostBattleBanter()
+        {
+            if (postBattleBanterLines != null && postBattleBanterLines.Count > 0)
+            {
+                int idx = UnityEngine.Random.Range(0, postBattleBanterLines.Count);
+                var banter = new List<DialogLine> { postBattleBanterLines[idx] };
+                if (DialogManager.Instance != null)
+                    DialogManager.Instance.ShowDialog(banter);
+            }
+        }
+
+        // Returns true if this enemy is the first boss
+        private bool IsFirstBoss(Enemy enemy)
+        {
+            return enemy != null && enemy == firstBossEnemy;
+        }
+
+        // Handles the sequence after defeating the first boss
+        private IEnumerator HandleFirstBossDefeatSequence()
+        {
+            yield return new WaitForSeconds(1f);
+            if (firstBossDefeatDialog != null && firstBossDefeatDialog.Count > 0)
+            {
+                bool dialogDone = false;
+                DialogManager.Instance.ShowDialog(firstBossDefeatDialog, () => { dialogDone = true; });
+                // Wait for dialog to finish
+                while (!dialogDone) yield return null;
+            }
+            // Show loading screen and transfer to WorldMap
+            if (loadingBar != null)
+            {
+                loadingBar.sceneToLoad = worldMapSceneName;
+                loadingBar.StartLoading();
+            }
+            else
+            {
+                // Fallback: load directly
+                UnityEngine.SceneManagement.SceneManager.LoadScene(worldMapSceneName);
+            }
+        }
+
         // --- HEALING/SHOP SYSTEM ---
-// To be called from a UI button (see Unity setup checklist)
-public void HealPlayer(int healAmount, int goldCost)
-{
-    if (player == null || player.Stats == null) return;
-    if (player.Stats.Gold < goldCost)
-    {
-        Debug.Log("Not enough gold to heal!");
-        // Optionally show UI feedback
-        return;
-    }
-    player.Stats.AddGold(-goldCost);
-    player.Stats.Heal(healAmount);
-    Debug.Log($"Player healed for {healAmount} HP, spent {goldCost} gold");
-    // Optionally show heal feedback UI
-}
-// --- LEVEL UP FEEDBACK ---
-// To be called from PlayerStats.OnLevelUp event
-public void ShowLevelUpFeedback()
-{
-    // Assumes LevelUpFeedbackUI is present in the scene and referenced
-    var feedbackUI = GameObject.FindObjectOfType<EverdrivenDays.LevelUpFeedbackUI>();
-    if (feedbackUI != null)
-    {
-        feedbackUI.ShowLevelUpFeedback();
-    }
-}
-// --- UI REFERENCE CHECKLIST (for Unity setup) ---
-// 1. Assign all UI fields in the Inspector: musicSource, notePrefab, laneTargets, laneSpawnPoints, progressBar, scoreText, comboText, accuracyText, gradeText, encounterText, rhythmGameUI, encounterEffectUI.
-// 2. Add a gold display TextMeshProUGUI to your main HUD and bind it to CharacterStats.OnGoldChanged.
-// 3. Add a heal/shop panel with a heal button. Hook the button to call HealPlayer(healAmount, goldCost).
-// 4. Add LevelUpFeedbackUI to your UI canvas and assign its fields. In PlayerStats, call SmallEnemyRhythmController.ShowLevelUpFeedback() from OnLevelUp.
-// 5. Remove all item/inventory UI from the canvas.
-// 6. Test all UI connections in Play mode.
+        // To be called from a UI button (see Unity setup checklist)
+        public void HealPlayer(int healAmount, int goldCost)
+        {
+            if (player == null || player.Stats == null) return;
+            if (player.Stats.Gold < goldCost)
+            {
+                Debug.Log("Not enough gold to heal!");
+                // Optionally show UI feedback
+                return;
+            }
+            player.Stats.AddGold(-goldCost);
+            player.Stats.Heal(healAmount);
+            Debug.Log($"Player healed for {healAmount} HP, spent {goldCost} gold");
+            // Optionally show heal feedback UI
+        }
+        // --- LEVEL UP FEEDBACK ---
+        // To be called from PlayerStats.OnLevelUp event
+        public void ShowLevelUpFeedback()
+        {
+            // Assumes LevelUpFeedbackUI is present in the scene and referenced
+            var feedbackUI = GameObject.FindObjectOfType<EverdrivenDays.LevelUpFeedbackUI>();
+            if (feedbackUI != null)
+            {
+                feedbackUI.ShowLevelUpFeedback();
+            }
+        }
+        // --- UI REFERENCE CHECKLIST (for Unity setup) ---
+        // 1. Assign all UI fields in the Inspector: musicSource, notePrefab, laneTargets, laneSpawnPoints, progressBar, scoreText, comboText, accuracyText, gradeText, encounterText, rhythmGameUI, encounterEffectUI.
+        // 2. Add a gold display TextMeshProUGUI to your main HUD and bind it to CharacterStats.OnGoldChanged.
+        // 3. Add a heal/shop panel with a heal button. Hook the button to call HealPlayer(healAmount, goldCost).
+        // 4. Add LevelUpFeedbackUI to your UI canvas and assign its fields. In PlayerStats, call SmallEnemyRhythmController.ShowLevelUpFeedback() from OnLevelUp.
+        // 5. Remove all item/inventory UI from the canvas.
+        // 6. Test all UI connections in Play mode.
         public void SetPlayer(Player playerRef)
         {
             player = playerRef;

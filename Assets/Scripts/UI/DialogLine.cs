@@ -7,4 +7,5 @@ public class DialogLine
     [TextArea] public string text;
     public AudioClip voiceClip;
     public bool lockPlayerMovement;
+    public string playerResponse; // Leave empty for no response
 }

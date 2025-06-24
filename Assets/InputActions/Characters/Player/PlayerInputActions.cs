@@ -164,24 +164,6 @@ namespace EverdrivenDays
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Attack"",
-                    ""type"": ""Button"",
-                    ""id"": ""0a5755b7-6dbd-44ae-a7e1-6db8ae41fb4f"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""StrongAttack"",
-                    ""type"": ""Button"",
-                    ""id"": ""4bc3a6d4-600c-41ab-ab1e-2205e270464b"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -338,28 +320,6 @@ namespace EverdrivenDays
                     ""action"": ""CursorToggle"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""7f6bfbb4-b597-4ab3-bfd8-ce9e8bd05399"",
-                    ""path"": ""<Mouse>/leftButton"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""Attack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""2de27ac9-98e8-4028-876b-24d908d0668c"",
-                    ""path"": ""<Keyboard>/q"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""StrongAttack"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -376,8 +336,6 @@ namespace EverdrivenDays
             m_Player_Sprint = m_Player.FindAction("Sprint", throwIfNotFound: true);
             m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
             m_Player_CursorToggle = m_Player.FindAction("CursorToggle", throwIfNotFound: true);
-            m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
-            m_Player_StrongAttack = m_Player.FindAction("StrongAttack", throwIfNotFound: true);
         }
 
         ~@PlayerInputActions()
@@ -466,8 +424,6 @@ namespace EverdrivenDays
         private readonly InputAction m_Player_Sprint;
         private readonly InputAction m_Player_Jump;
         private readonly InputAction m_Player_CursorToggle;
-        private readonly InputAction m_Player_Attack;
-        private readonly InputAction m_Player_StrongAttack;
         /// <summary>
         /// Provides access to input actions defined in input action map "Player".
         /// </summary>
@@ -511,14 +467,6 @@ namespace EverdrivenDays
             /// Provides access to the underlying input action "Player/CursorToggle".
             /// </summary>
             public InputAction @CursorToggle => m_Wrapper.m_Player_CursorToggle;
-            /// <summary>
-            /// Provides access to the underlying input action "Player/Attack".
-            /// </summary>
-            public InputAction @Attack => m_Wrapper.m_Player_Attack;
-            /// <summary>
-            /// Provides access to the underlying input action "Player/StrongAttack".
-            /// </summary>
-            public InputAction @StrongAttack => m_Wrapper.m_Player_StrongAttack;
             /// <summary>
             /// Provides access to the underlying input action map instance.
             /// </summary>
@@ -569,12 +517,6 @@ namespace EverdrivenDays
                 @CursorToggle.started += instance.OnCursorToggle;
                 @CursorToggle.performed += instance.OnCursorToggle;
                 @CursorToggle.canceled += instance.OnCursorToggle;
-                @Attack.started += instance.OnAttack;
-                @Attack.performed += instance.OnAttack;
-                @Attack.canceled += instance.OnAttack;
-                @StrongAttack.started += instance.OnStrongAttack;
-                @StrongAttack.performed += instance.OnStrongAttack;
-                @StrongAttack.canceled += instance.OnStrongAttack;
             }
 
             /// <summary>
@@ -610,12 +552,6 @@ namespace EverdrivenDays
                 @CursorToggle.started -= instance.OnCursorToggle;
                 @CursorToggle.performed -= instance.OnCursorToggle;
                 @CursorToggle.canceled -= instance.OnCursorToggle;
-                @Attack.started -= instance.OnAttack;
-                @Attack.performed -= instance.OnAttack;
-                @Attack.canceled -= instance.OnAttack;
-                @StrongAttack.started -= instance.OnStrongAttack;
-                @StrongAttack.performed -= instance.OnStrongAttack;
-                @StrongAttack.canceled -= instance.OnStrongAttack;
             }
 
             /// <summary>
@@ -712,20 +648,6 @@ namespace EverdrivenDays
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnCursorToggle(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnAttack(InputAction.CallbackContext context);
-            /// <summary>
-            /// Method invoked when associated input action "StrongAttack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-            /// </summary>
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-            void OnStrongAttack(InputAction.CallbackContext context);
         }
     }
 }

@@ -28,6 +28,19 @@ namespace EverdrivenDays
         [SerializeField] private Slider playerHealthBarSlider;
         [SerializeField] private Slider playerExpBarSlider;
         
+        [Header("Loading Screen")]
+        [SerializeField] private AdvancedLoadingBar loadingBar;
+        
+        [Header("Exit Button")]
+        [SerializeField] private Button exitButton;
+        [Tooltip("Scene name to load when exiting to title screen.")]
+        [SerializeField] private string titleScreenSceneName = "TitleScreen";
+        
+        [Header("Death/Respawn")]
+        [SerializeField] private GameObject youDiedPanel;
+        [SerializeField] private float fadeDuration = 1.5f;
+        [SerializeField] private float youDiedDisplayTime = 1.5f;
+        
         // References
         private Player player;
         
@@ -66,8 +79,15 @@ namespace EverdrivenDays
         
         private void Start()
         {
+             Debug.Log("[UIManager] Start called, exitButton=" + (exitButton != null));
+ 
             // Initialize UI elements
             UpdatePlayerHUD();
+            if (exitButton != null)
+            {
+                exitButton.onClick.RemoveListener(ExitToTitleScreen); // Prevent duplicate listeners
+                exitButton.onClick.AddListener(ExitToTitleScreen);
+            }
         }
         
         private void Update()
@@ -75,12 +95,24 @@ namespace EverdrivenDays
             // Check for input to toggle UI panels
             if (Input.GetKeyDown(KeyCode.I))
                 ToggleInventory();
-                
             if (Input.GetKeyDown(KeyCode.C))
                 ToggleStats();
-                
             if (Input.GetKeyDown(KeyCode.Escape))
-                TogglePause();
+            {
+                if (IsPausePanelOpen())
+                    TogglePause(); // Resume
+                else
+                    TogglePause(); // Open pause
+            }
+            if (IsPausePanelOpen() && Input.GetKeyDown(KeyCode.Q))
+            {
+                ExitToTitleScreen();
+            }
+        }
+        
+        private bool IsPausePanelOpen()
+        {
+            return pausePanel != null && pausePanel.activeSelf;
         }
         
         public void UpdatePlayerHUD()
@@ -217,6 +249,69 @@ namespace EverdrivenDays
                                       $"Defense: {defense}\n" +
                                       $"Agility: {agility}\n" +
                                       $"Intelligence: {intelligence}";
+            }
+        }
+        
+        /// <summary>
+        /// Exits to the TitleScreen scene using AdvancedLoadingBar for a loading screen.
+        /// Hook this to the pause panel's Exit button.
+        /// </summary>
+        public void ExitToTitleScreen()
+        {
+            Debug.Log($"[UIManager] ExitToTitleScreen called, loading scene: {titleScreenSceneName}");
+            if (pausePanel != null)
+                pausePanel.SetActive(false); // Hide pause panel before loading
+            Time.timeScale = 1f; // Unpause before loading
+            if (loadingBar != null)
+            {
+                loadingBar.sceneToLoad = titleScreenSceneName;
+                loadingBar.StartLoading();
+            }
+            else
+            {
+                Debug.LogError("[UIManager] AdvancedLoadingBar reference not set in inspector.");
+            }
+        }
+
+        public void PlayerDeathSequence()
+        {
+            StartCoroutine(DeathAndRespawnRoutine());
+        }
+
+        private System.Collections.IEnumerator DeathAndRespawnRoutine()
+        {
+            // Fade in 'YOU DIED' panel
+            if (youDiedPanel != null)
+            {
+                CanvasGroup cg = youDiedPanel.GetComponent<CanvasGroup>();
+                if (cg == null) cg = youDiedPanel.AddComponent<CanvasGroup>();
+                youDiedPanel.SetActive(true);
+                cg.alpha = 0f;
+                float t = 0f;
+                while (t < fadeDuration)
+                {
+                    t += Time.unscaledDeltaTime;
+                    cg.alpha = Mathf.Clamp01(t / fadeDuration);
+                    yield return null;
+                }
+                cg.alpha = 1f;
+                yield return new WaitForSecondsRealtime(youDiedDisplayTime);
+                // Fade out
+                t = 0f;
+                while (t < fadeDuration)
+                {
+                    t += Time.unscaledDeltaTime;
+                    cg.alpha = 1f - Mathf.Clamp01(t / fadeDuration);
+                    yield return null;
+                }
+                cg.alpha = 0f;
+                youDiedPanel.SetActive(false);
+            }
+            // Respawn player
+            if (player != null)
+            {
+                player.Respawn();
+                UpdatePlayerHUD();
             }
         }
     }

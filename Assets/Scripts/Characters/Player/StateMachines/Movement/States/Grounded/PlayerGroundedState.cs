@@ -102,8 +102,8 @@ namespace EverdrivenDays
             stateMachine.Player.Input.PlayerActions.Dash.started += OnDashStarted;
 
             stateMachine.Player.Input.PlayerActions.Jump.started += OnJumpStarted;
-            stateMachine.Player.Input.PlayerActions.Attack.started += OnAttackStarted;
-            stateMachine.Player.Input.PlayerActions.StrongAttack.started += OnStrongAttackStarted;
+            // stateMachine.Player.Input.PlayerActions.Attack.started += OnAttackStarted;
+            // stateMachine.Player.Input.PlayerActions.StrongAttack.started += OnStrongAttackStarted;
         }
 
         protected override void RemoveInputActionsCallbacks()
@@ -113,12 +113,17 @@ namespace EverdrivenDays
             stateMachine.Player.Input.PlayerActions.Dash.started -= OnDashStarted;
 
             stateMachine.Player.Input.PlayerActions.Jump.started -= OnJumpStarted;
-            stateMachine.Player.Input.PlayerActions.Attack.started -= OnAttackStarted;
-            stateMachine.Player.Input.PlayerActions.StrongAttack.started -= OnStrongAttackStarted;
+            // stateMachine.Player.Input.PlayerActions.Attack.started -= OnAttackStarted;
+            // stateMachine.Player.Input.PlayerActions.StrongAttack.started -= OnStrongAttackStarted;
         }
 
         protected virtual void OnDashStarted(InputAction.CallbackContext context)
         {
+            if (stateMachine.Player.Input != null && stateMachine.Player.Input.IsMovementLocked)
+            {
+                // Ignore dash input if movement is locked (e.g., during dialog)
+                return;
+            }
             stateMachine.ChangeState(stateMachine.DashingState);
         }
 

@@ -35,6 +35,9 @@ namespace EverdrivenDays
         private PlayerMovementStateMachine movementStateMachine;
         private Enemy currentTarget;
 
+        private Vector3 respawnPoint;
+        private Quaternion respawnRotation;
+
         private void Awake()
         {
             if (CameraRecenteringUtility != null)
@@ -66,7 +69,11 @@ namespace EverdrivenDays
         private void Start()
         {
             movementStateMachine.ChangeState(movementStateMachine.IdlingState);
-            
+
+            // Set initial respawn point
+            respawnPoint = transform.position;
+            respawnRotation = transform.rotation;
+
             // Hook up to UI Manager
             if (UIManager.Instance != null)
             {
@@ -208,6 +215,28 @@ namespace EverdrivenDays
                     // Start rhythm game combat
                     currentTarget.StartBattle();
                 }
+            }
+        }
+
+        public void SetRespawnPoint(Vector3 position, Quaternion rotation)
+        {
+            respawnPoint = position;
+            respawnRotation = rotation;
+        }
+
+        public void Respawn()
+        {
+            // Move player to respawn point and reset velocity
+            transform.position = respawnPoint;
+            transform.rotation = respawnRotation;
+            if (Rigidbody != null)
+            {
+                Rigidbody.linearVelocity = Vector3.zero;
+                Rigidbody.angularVelocity = Vector3.zero;
+            }
+            if (Stats != null)
+            {
+                Stats.FullyRestore(); // You may need to implement this to restore HP/MP/Stamina
             }
         }
         

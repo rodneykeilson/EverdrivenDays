@@ -10,6 +10,7 @@ namespace EverdrivenDays
         public PlayerInputActions.PlayerActions PlayerActions { get; private set; }
         
         private bool movementEnabled = true;
+        public bool IsMovementLocked { get; private set; } = false;
 
         private void Awake()
         {
@@ -51,6 +52,7 @@ namespace EverdrivenDays
             
             Debug.Log("Disabling player movement");
             movementEnabled = false;
+            IsMovementLocked = true;
             
             // Disable all player actions
             InputActions.Disable();
@@ -65,6 +67,7 @@ namespace EverdrivenDays
             
             Debug.Log("Re-enabling player movement");
             movementEnabled = true;
+            IsMovementLocked = false;
             
             // Re-enable all player actions
             InputActions.Enable();

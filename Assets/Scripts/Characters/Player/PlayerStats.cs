@@ -200,12 +200,21 @@ namespace EverdrivenDays
         protected override void Die()
         {
             base.Die();
-            
-            // Handle player death
             Debug.Log("Player died!");
-            
-            // Don't destroy the player, instead trigger game over
-            // GameManager.Instance?.GameOver();
+            // Trigger respawn sequence via UIManager
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.PlayerDeathSequence();
+            }
+        }
+
+        // Call this on respawn to fully restore player
+        public void FullyRestore()
+        {
+            SetHealth(MaxHealth);
+            SetMana(MaxMana);
+            currentStamina = maxStamina;
+            OnStaminaChanged?.Invoke(currentStamina, maxStamina);
         }
         
         protected override void ApplyLevelUpBonuses()
@@ -241,4 +250,4 @@ namespace EverdrivenDays
         public int MaxStamina => maxStamina;
         public float RhythmAccuracyBonus => rhythmAccuracyBonus;
     }
-} 
+}
