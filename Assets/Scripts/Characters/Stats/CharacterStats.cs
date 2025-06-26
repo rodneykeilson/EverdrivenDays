@@ -412,5 +412,20 @@ namespace EverdrivenDays
         public int ExperienceToNextLevel => experienceToNextLevel;
         
         #endregion
+        
+        #region Setters for save/load system
+        
+        public void SetLevel(int value) { level = value; }
+        public void SetExperience(int value) { experiencePoints = value; }
+        public void SetExperienceToNextLevel(int value) { experienceToNextLevel = value; }
+        public void SetMaxHealth(int value) { maxHealth.BaseValue = value; }
+        public void SetCurrentHealth(int value) { SetHealth(value); }
+        public void SetStrength(int value) { strength.BaseValue = value; }
+        public void SetDefense(int value) { defense.BaseValue = value; }
+        public void SetAgility(int value) { agility.BaseValue = value; }
+        public void SetIntelligence(int value) { intelligence.BaseValue = value; }
+        public void SetGold(int value) { gold = value; OnGoldChanged?.Invoke(gold); }
+        
+        #endregion
     }
 }

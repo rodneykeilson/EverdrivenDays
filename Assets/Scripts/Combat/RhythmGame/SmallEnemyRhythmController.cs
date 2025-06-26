@@ -82,6 +82,32 @@ namespace EverdrivenDays
         // Track running note spawn coroutines
         private List<Coroutine> noteSpawnCoroutines = new List<Coroutine>();
 
+        public enum DifficultyMode { Easy, Normal, Hard, Psycho }
+
+        public static DifficultyMode CurrentDifficulty = DifficultyMode.Hard;
+
+        [Header("Difficulty Settings")]
+        [Tooltip("Base difficulty value. This is modified by the selected difficulty mode.")]
+        [SerializeField] private int baseDifficulty = 50;
+
+        // Returns the effective difficulty value based on the selected mode
+        public static float GetEffectiveDifficulty(int baseValue)
+        {
+            switch (CurrentDifficulty)
+            {
+                case DifficultyMode.Easy:
+                    return baseValue / 3f;
+                case DifficultyMode.Normal:
+                    return baseValue * 0.5f;
+                case DifficultyMode.Hard:
+                    return baseValue * 1f;
+                case DifficultyMode.Psycho:
+                    return baseValue * 1.5f;
+                default:
+                    return baseValue;
+            }
+        }
+
         private void Awake()
         {
             if (rhythmGameUI != null)
@@ -284,6 +310,7 @@ namespace EverdrivenDays
             Debug.Log("Selecting song for rhythm game...");
             currentSong = null;
             Enemy currentEnemyRef = currentEnemy; // Use the current enemy reference if available
+            string enemyTag = currentEnemyRef != null ? currentEnemyRef.tag : null;
             // If a specific song clip is provided, try to find it in available songs
             if (specificSongClip != null)
             {
@@ -298,13 +325,17 @@ namespace EverdrivenDays
                     }
                 }
             }
-            // If no song was found or specified, pick a random one that matches the enemy (or any if none assigned)
+            // If no song was found or specified, pick a random one that matches the enemy tag (or any if none assigned)
             if (currentSong == null && availableSongs.Count > 0)
             {
                 List<SongData> filtered = new List<SongData>();
                 foreach (var song in availableSongs)
                 {
-                    if (song.allowedEnemies == null || song.allowedEnemies.Count == 0 || (currentEnemyRef != null && song.allowedEnemies.Contains(currentEnemyRef)))
+                    bool tagMatch = song.allowedEnemyTags != null && song.allowedEnemyTags.Count > 0 && enemyTag != null && song.allowedEnemyTags.Contains(enemyTag);
+                    bool enemyMatch = song.allowedEnemies != null && song.allowedEnemies.Count > 0 && currentEnemyRef != null && song.allowedEnemies.Contains(currentEnemyRef);
+                    if ((song.allowedEnemyTags == null || song.allowedEnemyTags.Count == 0) && (song.allowedEnemies == null || song.allowedEnemies.Count == 0))
+                        filtered.Add(song); // Allow any enemy if no restrictions
+                    else if (tagMatch || enemyMatch)
                         filtered.Add(song);
                 }
                 if (filtered.Count == 0)
@@ -435,7 +466,7 @@ namespace EverdrivenDays
             // Add 1.5s of emptiness at the start for player reaction
             float songOffset = currentSong.offset + 1.5f;
             float songLength = gameDuration;
-            int difficulty = Mathf.Clamp(noteGenSettings.density, 1, 64);
+            int difficulty = Mathf.Clamp((int)GetEffectiveDifficulty(noteGenSettings.density), 1, 64);
 
             // --- Rhythm grid calculation ---
             List<float> rhythmSteps = new List<float>();
@@ -1034,6 +1065,22 @@ namespace EverdrivenDays
             {
                 TriggerPostBattleBanter();
             }
+            // --- PERSISTENT SAVE AFTER ENCOUNTER ---
+            if (player != null && player.Stats != null)
+            {
+                EverdrivenDays.PlayerSaveData.Level = player.Stats.Level;
+                EverdrivenDays.PlayerSaveData.Experience = player.Stats.Experience;
+                EverdrivenDays.PlayerSaveData.ExperienceToNextLevel = player.Stats.ExperienceToNextLevel;
+                EverdrivenDays.PlayerSaveData.MaxHealth = player.Stats.MaxHealth;
+                EverdrivenDays.PlayerSaveData.CurrentHealth = player.Stats.CurrentHealth;
+                EverdrivenDays.PlayerSaveData.Strength = player.Stats.Strength;
+                EverdrivenDays.PlayerSaveData.Defense = player.Stats.Defense;
+                EverdrivenDays.PlayerSaveData.Agility = player.Stats.Agility;
+                EverdrivenDays.PlayerSaveData.Intelligence = player.Stats.Intelligence;
+                EverdrivenDays.PlayerSaveData.Gold = player.Stats.Gold;
+                EverdrivenDays.PlayerSaveData.SaveToPrefs();
+                Debug.Log("Player stats saved to PlayerPrefs after rhythm encounter.");
+            }
         }
 
 
@@ -1206,6 +1253,26 @@ namespace EverdrivenDays
                 yield return null;
             }
             textObject.transform.localScale = targetScale;
+        }
+
+        // Call this to immediately end the rhythm game if the player dies
+        public void ForceEndGameOnPlayerDeath()
+        {
+            if (isPlaying)
+            {
+                Debug.Log("Player died, force-ending rhythm game.");
+                isPlaying = false;
+                if (musicSource != null)
+                    musicSource.Stop();
+                if (rhythmGameUI != null)
+                    rhythmGameUI.SetActive(false);
+                // Optionally, clean up notes
+                foreach (var note in activeNotes)
+                {
+                    if (note != null) Destroy(note);
+                }
+                activeNotes.Clear();
+            }
         }
     }
 }

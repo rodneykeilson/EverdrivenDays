@@ -38,8 +38,18 @@ namespace EverdrivenDays
         private Vector3 respawnPoint;
         private Quaternion respawnRotation;
 
+        private static Player instance;
+
         private void Awake()
         {
+            if (instance != null && instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            instance = this;
+            DontDestroyOnLoad(gameObject);
+
             if (CameraRecenteringUtility != null)
                 CameraRecenteringUtility.Initialize();
                 
@@ -64,6 +74,25 @@ namespace EverdrivenDays
             }
 
             movementStateMachine = new PlayerMovementStateMachine(this);
+
+            // --- Load persistent player data if it exists ---
+            EverdrivenDays.PlayerSaveData.LoadFromPrefs();
+            if (PlayerPrefs.HasKey("Player_Level"))
+            {
+                Stats.SetLevel(EverdrivenDays.PlayerSaveData.Level);
+                Stats.SetExperience(EverdrivenDays.PlayerSaveData.Experience);
+                Stats.SetExperienceToNextLevel(EverdrivenDays.PlayerSaveData.ExperienceToNextLevel);
+                Stats.SetMaxHealth(EverdrivenDays.PlayerSaveData.MaxHealth);
+                Stats.SetCurrentHealth(EverdrivenDays.PlayerSaveData.CurrentHealth);
+                Stats.SetStrength(EverdrivenDays.PlayerSaveData.Strength);
+                Stats.SetDefense(EverdrivenDays.PlayerSaveData.Defense);
+                Stats.SetAgility(EverdrivenDays.PlayerSaveData.Agility);
+                Stats.SetIntelligence(EverdrivenDays.PlayerSaveData.Intelligence);
+                Stats.SetGold(EverdrivenDays.PlayerSaveData.Gold);
+
+                // --- After loading stats, ensure player is fully healed on respawn ---
+                Stats.SetCurrentHealth(Stats.MaxHealth);
+            }
         }
 
         private void Start()

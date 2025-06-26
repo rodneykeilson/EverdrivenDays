@@ -5,6 +5,15 @@ TagManager:
   serializedVersion: 3
   tags:
   - HUD
+  - Overworld
+  - Goblin
+  - LBot
+  - EnemySpawnPoint
+  - LegendSpawn
+  - Reaper
+  - ReaperSpawn
+  - Touhou
+  - TouhouSpawner
   layers:
   - Default
   - TransparentFX

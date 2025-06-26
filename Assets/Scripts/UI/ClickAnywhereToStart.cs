@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
+using EverdrivenDays; // Added namespace for SmallEnemyRhythmController
 
 public class ClickAnywhereToStart : MonoBehaviour, IPointerClickHandler
 {
@@ -9,6 +10,7 @@ public class ClickAnywhereToStart : MonoBehaviour, IPointerClickHandler
 
     public GameObject loadingPanel; // Assign in Inspector
     public AdvancedLoadingBar loadingBar; // Assign in Inspector (optional, for async loading)
+    public TMPro.TextMeshProUGUI difficultyText; // Assign in Inspector
 
     private bool hasStarted = false;
 
@@ -19,9 +21,26 @@ public class ClickAnywhereToStart : MonoBehaviour, IPointerClickHandler
 
     void Update()
     {
-        if (!hasStarted && (Input.anyKeyDown || Input.GetMouseButtonDown(0)))
+        // Only start game if a key other than Y is pressed, or mouse click
+        if (!hasStarted)
         {
-            StartGame();
+            if (Input.GetKeyDown(KeyCode.Y))
+            {
+                CycleDifficulty();
+            }
+            else if (Input.anyKeyDown || Input.GetMouseButtonDown(0))
+            {
+                // Prevent Y from starting the game
+                if (!Input.GetKeyDown(KeyCode.Y))
+                {
+                    StartGame();
+                }
+            }
+        }
+        // Update difficulty display
+        if (difficultyText != null)
+        {
+            difficultyText.text = $"Difficulty: {SmallEnemyRhythmController.CurrentDifficulty}";
         }
     }
 
@@ -49,5 +68,13 @@ public class ClickAnywhereToStart : MonoBehaviour, IPointerClickHandler
     {
         yield return null;
         SceneManager.LoadScene(sceneToLoad);
+    }
+
+    private void CycleDifficulty()
+    {
+        var values = System.Enum.GetValues(typeof(SmallEnemyRhythmController.DifficultyMode));
+        int current = (int)SmallEnemyRhythmController.CurrentDifficulty;
+        int next = (current + 1) % values.Length;
+        SmallEnemyRhythmController.CurrentDifficulty = (SmallEnemyRhythmController.DifficultyMode)values.GetValue(next);
     }
 }

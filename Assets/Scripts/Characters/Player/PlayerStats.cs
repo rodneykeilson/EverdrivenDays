@@ -26,6 +26,9 @@ namespace EverdrivenDays
         private float comboResetTime;
         private int currentComboCount;
         
+        private bool lockBaseHP = false;
+        private int lockedBaseHP = 0;
+
         protected override void Awake()
         {
             base.Awake();
@@ -217,6 +220,16 @@ namespace EverdrivenDays
             OnStaminaChanged?.Invoke(currentStamina, maxStamina);
         }
         
+        // Call this to set the base HP and lock it (used by difficulty system)
+        public void SetAndLockBaseHP(int hp)
+        {
+            baseHealth = hp;
+            maxHealth.BaseValue = hp;
+            lockBaseHP = true;
+            lockedBaseHP = hp;
+            SetHealth(hp);
+        }
+
         protected override void ApplyLevelUpBonuses()
         {
             base.ApplyLevelUpBonuses();
@@ -224,6 +237,12 @@ namespace EverdrivenDays
             // Additional bonuses for player
             maxStamina += 5;
             currentStamina = maxStamina; // Refill stamina on level up
+            // Prevent HP from increasing if locked by difficulty
+            if (lockBaseHP)
+            {
+                baseHealth = lockedBaseHP;
+                maxHealth.BaseValue = lockedBaseHP;
+            }
         }
         
         // Inventory integration

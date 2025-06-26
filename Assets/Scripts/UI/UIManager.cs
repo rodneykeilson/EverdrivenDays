@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement; // <-- Added for scene reloading
 
 namespace EverdrivenDays
 {
@@ -39,7 +40,7 @@ namespace EverdrivenDays
         [Header("Death/Respawn")]
         [SerializeField] private GameObject youDiedPanel;
         [SerializeField] private float fadeDuration = 1.5f;
-        [SerializeField] private float youDiedDisplayTime = 1.5f;
+        [SerializeField] private float youDiedDisplayTime = 5f;
         
         // References
         private Player player;
@@ -108,6 +109,8 @@ namespace EverdrivenDays
             {
                 ExitToTitleScreen();
             }
+            // --- QUICK FIX: Always update HUD ---
+            UpdatePlayerHUD();
         }
         
         private bool IsPausePanelOpen()
@@ -129,7 +132,7 @@ namespace EverdrivenDays
             int money = stats.Gold;
 
             if (playerHealthText != null)
-                playerHealthText.text = $"{currentHealth}/{maxHealth}";
+                playerHealthText.text = $"{currentHealth:N0} <color=#ffc9d6>/</color> {maxHealth:N0}";
 
             // Use Slider for health bar
             if (playerHealthBarSlider != null)
@@ -275,6 +278,12 @@ namespace EverdrivenDays
 
         public void PlayerDeathSequence()
         {
+            // Cancel rhythm encounter if active
+            var rhythm = FindAnyObjectByType<SmallEnemyRhythmController>();
+            if (rhythm != null)
+            {
+                rhythm.ForceEndGameOnPlayerDeath();
+            }
             StartCoroutine(DeathAndRespawnRoutine());
         }
 
@@ -295,24 +304,27 @@ namespace EverdrivenDays
                     yield return null;
                 }
                 cg.alpha = 1f;
+                // Hold the panel fully visible for a bit longer
                 yield return new WaitForSecondsRealtime(youDiedDisplayTime);
-                // Fade out
-                t = 0f;
-                while (t < fadeDuration)
-                {
-                    t += Time.unscaledDeltaTime;
-                    cg.alpha = 1f - Mathf.Clamp01(t / fadeDuration);
-                    yield return null;
-                }
-                cg.alpha = 0f;
-                youDiedPanel.SetActive(false);
             }
-            // Respawn player
-            if (player != null)
+            // --- Save player stats before reload ---
+            if (player != null && player.Stats != null)
             {
-                player.Respawn();
-                UpdatePlayerHUD();
+                var stats = player.Stats;
+                PlayerSaveData.Level = stats.Level;
+                PlayerSaveData.Experience = stats.Experience;
+                PlayerSaveData.ExperienceToNextLevel = stats.ExperienceToNextLevel;
+                PlayerSaveData.MaxHealth = stats.MaxHealth;
+                PlayerSaveData.CurrentHealth = stats.CurrentHealth;
+                PlayerSaveData.Strength = stats.Strength;
+                PlayerSaveData.Defense = stats.Defense;
+                PlayerSaveData.Agility = stats.Agility;
+                PlayerSaveData.Intelligence = stats.Intelligence;
+                PlayerSaveData.Gold = stats.Gold;
+                PlayerSaveData.SaveToPrefs(); // Persist to disk
             }
+            // --- Reload the current scene ---
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
 }

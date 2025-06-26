@@ -30,6 +30,8 @@ namespace EverdrivenDays
         public float customDuration = 0f;
         [SerializeField, Tooltip("Assign one or more enemies that this song can be used for. Leave empty to allow any enemy.")]
         public List<Enemy> allowedEnemies = new List<Enemy>();
+        [SerializeField, Tooltip("Assign one or more enemy tags that this song can be used for. Leave empty to allow any enemy.")]
+        public List<string> allowedEnemyTags = new List<string>();
     }
 
     [Serializable]
